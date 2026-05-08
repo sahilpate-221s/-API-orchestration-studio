@@ -1,0 +1,109 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,100..900;1,100..900&display=swap');
+@import "tailwindcss";
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+/* Theme (this replaces tailwind.config.js) */
+@theme {
+  --color-canvas: #0a0a0a;
+  --color-surface: #141414;
+  --color-surfaceHover: #1a1a1a;
+  --color-border: #1f1f1f;
+  --color-borderHover: #2a2a2a;
+
+  --font-sans: "Inter", system-ui, sans-serif;
+
+  --shadow-node: 0 2px 8px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.04);
+  --shadow-nodeHover: 0 4px 16px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.06);
+  --shadow-glow-blue: 0 0 0 1px rgba(99,102,241,0.5), 0 0 20px rgba(99,102,241,0.15);
+  --shadow-glow-green: 0 0 0 1px rgba(16,185,129,0.5), 0 0 20px rgba(16,185,129,0.15);
+  --shadow-glow-red: 0 0 0 1px rgba(239,68,68,0.4), 0 0 20px rgba(239,68,68,0.12);
+}
+
+html, body, #root {
+  width: 100%;
+  height: 100%;
+  background-color: var(--color-canvas);
+  font-family: var(--font-sans);
+  color: #ffffff;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Canvas layout needs overflow hidden to prevent scroll */
+.canvas-root {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Dashboard gets scroll */
+.dashboard-root {
+  width: 100%;
+  min-height: 100%;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+/* React Flow overrides */
+.react-flow__background {
+  background-color: var(--color-canvas) !important;
+}
+
+.react-flow__controls {
+  background: var(--color-surface) !important;
+  border: 1px solid var(--color-border) !important;
+  border-radius: 10px !important;
+  box-shadow: var(--shadow-node) !important;
+  overflow: hidden;
+}
+
+.react-flow__controls-button {
+  background: var(--color-surface) !important;
+  border: none !important;
+  border-bottom: 1px solid var(--color-border) !important;
+  color: #71717a !important;
+  fill: #71717a !important;
+  width: 28px !important;
+  height: 28px !important;
+  transition: all 0.15s ease !important;
+}
+
+.react-flow__controls-button:hover {
+  background: var(--color-surfaceHover) !important;
+  fill: #ffffff !important;
+}
+
+.react-flow__controls-button:last-child {
+  border-bottom: none !important;
+}
+
+.react-flow__minimap {
+  background: var(--color-surface) !important;
+  border: 1px solid var(--color-border) !important;
+  border-radius: 10px !important;
+  box-shadow: var(--shadow-node) !important;
+  overflow: hidden;
+}
+
+.react-flow__edge-path {
+  stroke-width: 1.5 !important;
+}
+
+.react-flow__edge.selected .react-flow__edge-path {
+  stroke: #6366f1 !important;
+}
+
+.react-flow__handle {
+  transition: all 0.15s ease !important;
+}
+
+.react-flow__connection-line {
+  stroke: #6366f1 !important;
+  stroke-width: 1.5 !important;
+}
