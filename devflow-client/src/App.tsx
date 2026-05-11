@@ -8,6 +8,8 @@ import NodePanel from './components/ui/NodePanel'
 import LandingPage from './components/ui/LandingPage'
 import LoginPage from './pages/LoginPage'
 import DashboardPage from './pages/DashboardPage'
+import AboutPage from './pages/AboutPage'
+import ContactPage from './pages/ContactPage'
 import ExecutionHistory from './components/ui/ExecutionHistory'
 import ExecutionLog from './components/ui/ExecutionLog'
 import CommandPalette from './components/ui/CommandPalette'
@@ -177,7 +179,7 @@ function LandingRoute() {
   }, [isAuth])
 
   return (
-    <div style={{ height: '100vh', overflowY: 'auto' }}>
+    <div style={{ minHeight: '100vh' }}>
       <LandingPage onAction={(mode) => navigate(`/${mode}`)} />
     </div>
   )
@@ -193,10 +195,12 @@ function LoginRoute({ mode }: { mode: 'login' | 'register' }) {
   }, [isAuth])
 
   return (
-    <LoginPage
-      initialMode={mode}
-      onBack={() => navigate('/')}
-    />
+    <div style={{ minHeight: '100vh' }}>
+      <LoginPage
+        initialMode={mode}
+        onBack={() => navigate('/')}
+      />
+    </div>
   )
 }
 
@@ -208,6 +212,8 @@ export default function App() {
         <Route path="/" element={<LandingRoute />} />
         <Route path="/login" element={<LoginRoute mode="login" />} />
         <Route path="/register" element={<LoginRoute mode="register" />} />
+        <Route path="/about" element={<AboutPage />} />
+        <Route path="/contact" element={<ContactPage />} />
         <Route path="/dashboard" element={<DashboardRoute />} />
         <Route
           path="/canvas/:workflowId"

@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
 import api from '../services/api'
 import { useAuthStore } from '../store/authStore'
 import type { FlowWorkflow } from '../types'
@@ -12,57 +13,210 @@ const getHour = () => {
 
 const uniqueNames = (names: string[]) =>
   Array.from(new Set(names.map((name) => name.trim()).filter(Boolean)))
+
+type WorkspaceEntry = { id: string; name: string }
+
+function dedupeWorkspaceEntries(rows: WorkspaceEntry[]): WorkspaceEntry[] {
+  const m = new Map<string, WorkspaceEntry>()
+  for (const r of rows) {
+    if (r.id && r.name) m.set(r.id, { id: r.id, name: r.name })
+  }
+  return Array.from(m.values())
+}
+
 const CSS = `
 @keyframes spin { to { transform: rotate(360deg) } }
 @keyframes fadeUp { from { opacity: 0; transform: translateY(10px) } to { opacity: 1; transform: none } }
-@keyframes grid-move {
-  0% { background-position: 0 0; }
-  100% { background-position: 0 60px; }
+@keyframes ink-breathe {
+  0%, 100% { opacity: 0.72; transform: scale(1) translate(0, 0); }
+  50% { opacity: 0.96; transform: scale(1.04) translate(1%, -0.6%); }
+}
+@keyframes orb-a {
+  0%, 100% { transform: translate(0%, 0%) scale(1); }
+  33% { transform: translate(7%, -5%) scale(1.06); }
+  66% { transform: translate(-4%, 3%) scale(0.98); }
+}
+@keyframes orb-b {
+  0%, 100% { transform: translate(0%, 0%) scale(1); }
+  40% { transform: translate(-9%, 6%) scale(1.07); }
+  70% { transform: translate(5%, -7%) scale(1); }
+}
+@keyframes orb-c {
+  0%, 100% { transform: translate(-50%, -50%) translate(0, 0) scale(1); }
+  50% { transform: translate(-50%, -50%) translate(3%, 4%) scale(1.1); }
+}
+@keyframes glint-orbit {
+  0% { transform: rotate(0turn) scale(1); opacity: 0.5; }
+  50% { opacity: 0.88; }
+  100% { transform: rotate(1turn) scale(1.05); opacity: 0.5; }
+}
+@keyframes sheen-slide {
+  0% { transform: translateX(-55%) skewX(-12deg); opacity: 0; }
+  12% { opacity: 1; }
+  55% { opacity: 1; }
+  70% { transform: translateX(55%) skewX(-12deg); opacity: 0; }
+  100% { transform: translateX(55%) skewX(-12deg); opacity: 0; }
+}
+@keyframes pulse-edge {
+  0%, 100% { opacity: 0.34; }
+  50% { opacity: 0.62; }
+}
+
+.db-bg-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
 }
 
 .db-shell {
   min-height: 100vh;
-  background: #000000;
+  background:
+    radial-gradient(ellipse 110% 72% at 50% -8%, #111111 0%, transparent 58%),
+    radial-gradient(ellipse 90% 55% at 108% 28%, #0b0b0b 0%, transparent 48%),
+    radial-gradient(ellipse 75% 70% at -8% 85%, #060606 0%, transparent 52%),
+    linear-gradient(168deg, #000000 0%, #050505 38%, #020202 72%, #0a0a0a 100%);
   color: #ffffff;
   font-family: Inter, system-ui, sans-serif;
   position: relative;
   overflow: hidden;
 }
 
-.tron-grid-container {
-  position: fixed;
+.db-bg-ink {
+  position: absolute;
+  inset: -18%;
+  background:
+    radial-gradient(ellipse 58% 48% at 22% 32%, #141414 0%, transparent 58%),
+    radial-gradient(ellipse 52% 42% at 82% 24%, #0a0a0a 0%, transparent 55%),
+    radial-gradient(ellipse 48% 55% at 64% 88%, #0d0d0d 0%, transparent 50%);
+  animation: ink-breathe 22s ease-in-out infinite;
+  filter: blur(1.5px);
+}
+
+.db-bg-orb {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(80px);
+  mix-blend-mode: normal;
+  opacity: 0.55;
+  will-change: transform;
+}
+.db-bg-orb--a {
+  width: min(74vw, 640px);
+  height: min(74vw, 640px);
+  top: -14%;
+  left: -10%;
+  background: radial-gradient(circle, #1c1c1c 0%, #080808 42%, transparent 72%);
+  animation: orb-a 32s ease-in-out infinite;
+}
+.db-bg-orb--b {
+  width: min(68vw, 560px);
+  height: min(68vw, 560px);
+  bottom: -8%;
+  right: -14%;
+  background: radial-gradient(circle, #101010 0%, #030303 48%, transparent 74%);
+  animation: orb-b 36s ease-in-out infinite;
+  animation-delay: -8s;
+}
+.db-bg-orb--c {
+  width: min(52vw, 440px);
+  height: min(52vw, 440px);
+  top: 44%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: radial-gradient(circle, #181818 0%, #050505 50%, transparent 70%);
+  animation: orb-c 26s ease-in-out infinite;
+  animation-delay: -12s;
+}
+
+.db-bg-glint {
+  position: absolute;
+  inset: -40%;
+  display: grid;
+  place-items: center;
+  opacity: 0.78;
+}
+.db-bg-glint::before {
+  content: "";
+  width: 55vmax;
+  height: 55vmax;
+  border-radius: 50%;
+  background: conic-gradient(from 0deg, transparent 0deg, transparent 55deg, rgba(255,255,255,0.16) 90deg, transparent 125deg, transparent 360deg);
+  filter: blur(56px);
+  animation: glint-orbit 48s linear infinite;
+}
+
+.db-bg-sheen {
+  position: absolute;
   inset: 0;
-  z-index: 0;
-  pointer-events: none;
   overflow: hidden;
-  perspective: 1000px;
+  mask-image: radial-gradient(ellipse 85% 70% at 50% 42%, black 0%, transparent 72%);
+  -webkit-mask-image: radial-gradient(ellipse 85% 70% at 50% 42%, black 0%, transparent 72%);
+}
+.db-bg-sheen::after {
+  content: "";
+  position: absolute;
+  top: 18%;
+  left: 50%;
+  width: 45%;
+  height: 140%;
+  margin-left: -22%;
+  background: linear-gradient(
+    105deg,
+    transparent 0%,
+    rgba(255,255,255,0.1) 42%,
+    rgba(255,255,255,0.16) 50%,
+    rgba(255,255,255,0.1) 58%,
+    transparent 100%
+  );
+  filter: blur(1px);
+  animation: sheen-slide 11s ease-in-out infinite;
+  animation-delay: 1.5s;
 }
 
-.tron-grid {
+.db-bg-vignette {
   position: absolute;
-  bottom: -30vh;
-  left: -50vw;
-  width: 200vw;
-  height: 80vh;
-  background-image: 
-    linear-gradient(rgba(99, 102, 241, 0.4) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(99, 102, 241, 0.4) 1px, transparent 1px);
-  background-size: 60px 60px;
-  transform: rotateX(75deg);
-  transform-origin: top;
-  animation: grid-move 2s linear infinite;
-  mask-image: linear-gradient(transparent 0%, black 60%);
-  -webkit-mask-image: linear-gradient(transparent 0%, black 60%);
-}
-
-.tron-glow {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  width: 100%;
-  height: 40vh;
-  background: linear-gradient(to top, rgba(99, 102, 241, 0.15), transparent);
+  inset: 0;
+  box-shadow: inset 0 0 120px rgba(0,0,0,0.68), inset 0 0 280px rgba(0,0,0,0.48);
+  animation: pulse-edge 14s ease-in-out infinite;
   pointer-events: none;
+}
+
+.db-bg-noise {
+  position: absolute;
+  inset: 0;
+  opacity: 0.13;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='256' height='256'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-size: 180px 180px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .db-bg-layer .db-bg-ink,
+  .db-bg-layer .db-bg-orb,
+  .db-bg-layer .db-bg-glint::before,
+  .db-bg-layer .db-bg-sheen::after,
+  .db-bg-layer .db-bg-vignette,
+  .db-topbar-bg .db-bg-ink,
+  .db-topbar-bg .db-bg-orb,
+  .db-topbar-bg .db-bg-glint::before,
+  .db-topbar-bg .db-bg-sheen::after,
+  .db-topbar-bg .db-bg-vignette {
+    animation: none !important;
+  }
+  .db-bg-layer .db-bg-ink,
+  .db-topbar-bg .db-bg-ink { opacity: 0.85; transform: none; }
+  .db-bg-layer .db-bg-orb { opacity: 0.28; }
+  .db-topbar-bg .db-bg-orb { opacity: 0.28; }
+  .db-bg-layer .db-bg-orb--c,
+  .db-topbar-bg .db-bg-orb--c { transform: translate(-50%, -50%); }
+  .db-bg-layer .db-bg-glint::before,
+  .db-topbar-bg .db-bg-glint::before { transform: none; opacity: 0.48; }
+  .db-bg-layer .db-bg-sheen::after,
+  .db-topbar-bg .db-bg-sheen::after { transform: none; opacity: 0; }
+  .db-bg-layer .db-bg-vignette,
+  .db-topbar-bg .db-bg-vignette { opacity: 0.48; }
 }
 
 .db-topbar {
@@ -70,16 +224,123 @@ const CSS = `
   top: 0;
   z-index: 50;
   height: 64px;
-  border-bottom: 1px solid rgba(255,255,255,0.06);
-  background: rgba(10,10,10,0.96);
-  backdrop-filter: blur(14px);
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+  background: rgba(5, 5, 5, 0.62);
+  backdrop-filter: blur(12px);
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 0 24px;
+  overflow: hidden;
 }
 
-.db-brand, .db-user, .db-stat, .db-panel, .db-workspace-item, .db-workflow-row, .db-empty {
+.db-topbar-bg {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.db-topbar-bg .db-bg-ink {
+  inset: -35%;
+  filter: blur(1px);
+}
+
+.db-topbar-bg .db-bg-orb {
+  filter: blur(38px);
+  opacity: 0.62;
+}
+
+.db-topbar-bg .db-bg-orb--a {
+  width: 200px;
+  height: 200px;
+  top: -55%;
+  left: -8%;
+}
+
+.db-topbar-bg .db-bg-orb--b {
+  width: 180px;
+  height: 180px;
+  bottom: -45%;
+  right: -5%;
+}
+
+.db-topbar-bg .db-bg-orb--c {
+  width: 160px;
+  height: 160px;
+  top: 50%;
+  left: 72%;
+}
+
+.db-topbar-bg .db-bg-glint {
+  inset: -25%;
+  opacity: 0.82;
+}
+
+.db-topbar-bg .db-bg-glint::before {
+  width: 22vmax;
+  height: 22vmax;
+  filter: blur(22px);
+}
+
+.db-topbar-bg .db-bg-sheen {
+  mask-image: radial-gradient(ellipse 95% 120% at 50% 50%, black 0%, transparent 78%);
+  -webkit-mask-image: radial-gradient(ellipse 95% 120% at 50% 50%, black 0%, transparent 78%);
+}
+
+.db-topbar-bg .db-bg-sheen::after {
+  top: -20%;
+  height: 180%;
+  width: 55%;
+  margin-left: -28%;
+}
+
+.db-topbar-bg .db-bg-vignette {
+  box-shadow: inset 0 0 48px rgba(0,0,0,0.58), inset 0 0 90px rgba(0,0,0,0.38);
+}
+
+.db-topbar-bg .db-bg-noise {
+  opacity: 0.11;
+}
+
+.db-topbar-inner {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: minmax(0, auto) minmax(0, 1fr) minmax(0, auto);
+  align-items: center;
+  width: 100%;
+  min-width: 0;
+  gap: 12px 16px;
+}
+
+.db-topbar-links {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  min-width: 0;
+}
+
+.db-nav-link {
+  color: rgba(255, 255, 255, 0.52);
+  font-size: 13px;
+  font-weight: 650;
+  text-decoration: none;
+  padding: 8px 12px;
+  border-radius: 8px;
+  white-space: nowrap;
+  transition: color 0.16s ease, background 0.16s ease;
+}
+
+.db-nav-link:hover {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.07);
+}
+
+.db-brand, .db-user, .db-stat, .db-panel, .db-workspace-row, .db-workflow-row, .db-empty {
   border: 1px solid rgba(255,255,255,0.06);
   background: rgba(15, 15, 15, 0.7);
   backdrop-filter: blur(24px);
@@ -153,9 +414,9 @@ const CSS = `
 }
 
 .db-page {
-  max-width: 1260px;
+  max-width: 1400px;
   margin: 0 auto;
-  padding: 34px 24px 80px;
+  padding: 48px 64px 80px;
   animation: fadeUp 0.35s ease;
   position: relative;
   z-index: 5;
@@ -170,11 +431,26 @@ const CSS = `
 }
 
 .db-title {
-  font-size: 36px;
-  line-height: 1.05;
+  font-size: 44px;
+  line-height: 1.06;
   font-weight: 800;
-  letter-spacing: 0;
-  margin: 6px 0 10px;
+  letter-spacing: -0.02em;
+  margin: 8px 0 12px;
+}
+
+.db-hero-greeting {
+  font-size: 15px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: rgba(255, 255, 255, 0.48);
+}
+
+.db-hero-lead {
+  max-width: 680px;
+  font-size: 17px;
+  line-height: 1.75;
+  color: rgba(255, 255, 255, 0.66);
 }
 
 .db-muted { color: rgba(255,255,255,0.45); }
@@ -209,14 +485,27 @@ const CSS = `
 
 .db-grid {
   display: grid;
-  grid-template-columns: 318px minmax(0, 1fr);
-  gap: 14px;
-  align-items: start;
+  grid-template-columns: 352px minmax(0, 1fr);
+  gap: 16px;
+  align-items: stretch;
+  height: clamp(460px, calc(100svh - 224px), 900px);
 }
 
 .db-panel {
-  border-radius: 8px;
+  border-radius: 10px;
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
+}
+
+.db-panel-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
 }
 
 .db-panel-header {
@@ -260,29 +549,46 @@ const CSS = `
   flex-direction: column;
   gap: 6px;
   padding: 10px;
-  max-height: calc(100vh - 280px);
-  overflow: auto;
 }
 
-.db-workspace-item {
+.db-workspace-row {
   width: 100%;
   border-radius: 8px;
-  padding: 11px 12px;
+  padding: 5px 6px 5px 8px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 6px;
+  transition: background 0.16s ease, border-color 0.16s ease;
+}
+
+.db-workspace-row:hover,
+.db-workspace-row.is-active {
+  background: rgba(255,255,255,0.06);
+  border-color: rgba(255,255,255,0.14);
+}
+
+.db-workspace-select {
+  min-width: 0;
+  border: 0;
+  background: transparent;
   color: inherit;
   font: inherit;
   text-align: left;
   cursor: pointer;
+  padding: 8px 6px;
+  border-radius: 6px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  transition: background 0.16s ease, border-color 0.16s ease;
 }
 
-.db-workspace-item:hover,
-.db-workspace-item.is-active {
-  background: rgba(255,255,255,0.06);
-  border-color: rgba(255,255,255,0.14);
+.db-workspace-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
 }
 
 .db-count {
@@ -298,7 +604,7 @@ const CSS = `
   font-weight: 750;
 }
 
-.db-workspace-item.is-active .db-count {
+.db-workspace-row.is-active .db-count {
   color: #ffffff;
   border-color: rgba(255,255,255,0.2);
 }
@@ -413,23 +719,71 @@ const CSS = `
 @media (max-width: 860px) {
   .db-topbar { padding: 0 14px; }
   .db-user-text { display: none; }
+  .db-topbar-inner {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+  .db-topbar-inner > div:first-of-type {
+    order: 1;
+  }
+  .db-topbar-links {
+    order: 2;
+    grid-column: 1 / -1;
+    justify-content: flex-start;
+  }
+  .db-topbar-inner > div:last-of-type {
+    order: 3;
+    justify-self: end;
+    width: 100%;
+    justify-content: flex-end;
+  }
   .db-hero, .db-main-head { grid-template-columns: 1fr; }
-  .db-title { font-size: 30px; }
+  .db-title { font-size: 34px; }
+  .db-hero-greeting { font-size: 14px; }
+  .db-hero-lead { font-size: 16px; }
   .db-stats { grid-template-columns: 1fr; }
-  .db-grid { grid-template-columns: 1fr; }
-  .db-workspace-list { max-height: none; }
+  .db-grid {
+    grid-template-columns: 1fr;
+    height: auto;
+    min-height: 0;
+  }
+  .db-panel {
+    height: clamp(400px, 56vh, 600px);
+    min-height: clamp(400px, 56vh, 600px);
+  }
 }
 `
 
 export default function DashboardPage({ onOpenWorkflow }: Props) {
   const { user, clearAuth } = useAuthStore()
   const [workflows, setWorkflows] = useState<FlowWorkflow[]>([])
-  const [savedWorkspaces, setSavedWorkspaces] = useState<string[]>([])
+  const [workspaceEntries, setWorkspaceEntries] = useState<WorkspaceEntry[]>([])
   const [loading, setLoading] = useState(true)
   const [showModal, setShowModal] = useState(false)
   const [newWsName, setNewWsName] = useState('')
+  const [renameModal, setRenameModal] = useState<null | { id: string; name: string }>(null)
+  const [renameDraft, setRenameDraft] = useState('')
+  const [deleteModal, setDeleteModal] = useState<null | { id: string; name: string }>(null)
   const [selectedWs, setSelectedWs] = useState<string | null>(null)
   const [search, setSearch] = useState('')
+
+  const ensureWorkspaceId = useCallback(async (name: string): Promise<string | null> => {
+    const n = name.trim()
+    if (!n) return null
+    const existing = workspaceEntries.find(e => e.name === n)
+    if (existing) return existing.id
+    try {
+      const res = await api.post('/workflows/workspaces', { name: n })
+      const w = res.data.workspace
+      const id = String(w?._id ?? w?.id ?? '')
+      const nm = typeof w?.name === 'string' ? w.name.trim() : n
+      if (!id) return null
+      setWorkspaceEntries(prev => dedupeWorkspaceEntries([...prev, { id, name: nm }]))
+      return id
+    } catch {
+      return null
+    }
+  }, [workspaceEntries])
 
   const fetchDashboard = async () => {
     setLoading(true)
@@ -438,7 +792,11 @@ export default function DashboardPage({ onOpenWorkflow }: Props) {
       setWorkflows(workflowRes.data.workflows.map(normalizeWorkflow))
 
       const workspaceRes = await api.get('/workflows/workspaces')
-      setSavedWorkspaces(uniqueNames(workspaceRes.data.workspaces.map((workspace: any) => workspace.name)))
+      const rows = (workspaceRes.data.workspaces as any[]).map((w) => ({
+        id: String(w._id ?? w.id ?? ''),
+        name: String(w.name ?? '').trim(),
+      })).filter((e): e is WorkspaceEntry => Boolean(e.id && e.name))
+      setWorkspaceEntries(dedupeWorkspaceEntries(rows))
     } catch {
       /* keep the current dashboard state if the request fails */
     } finally {
@@ -454,7 +812,7 @@ export default function DashboardPage({ onOpenWorkflow }: Props) {
     try {
       const res = await api.post('/workflows', { name: 'New Workflow', workspace: ws })
       const wf = normalizeWorkflow(res.data.workflow)
-      setSavedWorkspaces((prev) => uniqueNames([...prev, wf.workspace || 'My Workspace']))
+      void ensureWorkspaceId(wf.workspace || 'My Workspace')
       onOpenWorkflow(wf.id, wf.name, wf.workspace || 'My Workspace', wf.nodes, wf.edges)
     } catch {
       /* ignore */
@@ -486,8 +844,12 @@ export default function DashboardPage({ onOpenWorkflow }: Props) {
 
     try {
       const res = await api.post('/workflows/workspaces', { name })
-      const workspaceName = res.data.workspace?.name || name
-      setSavedWorkspaces(prev => uniqueNames([...prev, workspaceName]))
+      const w = res.data.workspace
+      const workspaceName = (typeof w?.name === 'string' ? w.name.trim() : '') || name
+      const id = String(w?._id ?? w?.id ?? '')
+      if (id) {
+        setWorkspaceEntries(prev => dedupeWorkspaceEntries([...prev, { id, name: workspaceName }]))
+      }
       setSelectedWs(workspaceName)
       setNewWsName('')
       setShowModal(false)
@@ -496,12 +858,66 @@ export default function DashboardPage({ onOpenWorkflow }: Props) {
     }
   }
 
+  const openRenameWorkspace = (ws: string) => {
+    void (async () => {
+      const id = await ensureWorkspaceId(ws)
+      if (!id) return
+      setRenameModal({ id, name: ws })
+      setRenameDraft(ws)
+    })()
+  }
+
+  const handleConfirmRenameWorkspace = async () => {
+    if (!renameModal) return
+    const next = renameDraft.trim()
+    if (!next) return
+    if (next === renameModal.name) {
+      setRenameModal(null)
+      return
+    }
+    try {
+      const res = await api.put(`/workflows/workspaces/${renameModal.id}`, { name: next })
+      const w = res.data.workspace
+      const newName = (typeof w?.name === 'string' ? w.name.trim() : '') || next
+      const oldName = renameModal.name
+      setWorkspaceEntries(prev => prev.map(e => (e.id === renameModal.id ? { ...e, name: newName } : e)))
+      setWorkflows(prev => prev.map(wf => ((wf.workspace || 'My Workspace') === oldName ? { ...wf, workspace: newName } : wf)))
+      setSelectedWs(cur => (cur === oldName ? newName : cur))
+      setRenameModal(null)
+    } catch {
+      /* ignore */
+    }
+  }
+
+  const openDeleteWorkspace = (ws: string) => {
+    if (ws === 'My Workspace') return
+    void (async () => {
+      const id = await ensureWorkspaceId(ws)
+      if (!id) return
+      setDeleteModal({ id, name: ws })
+    })()
+  }
+
+  const handleConfirmDeleteWorkspace = async () => {
+    if (!deleteModal) return
+    try {
+      await api.delete(`/workflows/workspaces/${deleteModal.id}`)
+      const gone = deleteModal.name
+      setWorkspaceEntries(prev => prev.filter(e => e.id !== deleteModal.id))
+      setWorkflows(prev => prev.map(wf => ((wf.workspace || 'My Workspace') === gone ? { ...wf, workspace: 'My Workspace' } : wf)))
+      setSelectedWs(cur => (cur === gone ? 'My Workspace' : cur))
+      setDeleteModal(null)
+    } catch {
+      /* ignore */
+    }
+  }
+
   const workspaces = useMemo(() => {
     return uniqueNames([
-      ...savedWorkspaces,
+      ...workspaceEntries.map(e => e.name),
       ...workflows.map(w => w.workspace || 'My Workspace'),
     ])
-  }, [savedWorkspaces, workflows])
+  }, [workspaceEntries, workflows])
 
   const filteredWorkspaces = useMemo(() => {
     if (!search.trim()) return workspaces
@@ -535,52 +951,77 @@ export default function DashboardPage({ onOpenWorkflow }: Props) {
     <div className="db-shell">
       <style>{CSS}</style>
 
-      {/* Animated Background Elements */}
-      <div className="tron-grid-container">
-        <div className="tron-grid" />
-        <div className="tron-glow" />
+      <div className="db-bg-layer" aria-hidden="true">
+        <div className="db-bg-ink" />
+        <div className="db-bg-orb db-bg-orb--a" />
+        <div className="db-bg-orb db-bg-orb--b" />
+        <div className="db-bg-orb db-bg-orb--c" />
+        <div className="db-bg-glint" />
+        <div className="db-bg-sheen" />
+        <div className="db-bg-noise" />
+        <div className="db-bg-vignette" />
       </div>
 
-      <nav className="db-topbar" style={{ position: 'relative', zIndex: 10 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
-          <div className="db-brand" aria-hidden="true">
-            <div style={{
-              position: 'absolute',
-              inset: 0,
-              background: 'radial-gradient(circle at 30% 30%, rgba(255,255,255,0.1) 0%, transparent 70%)',
-            }} />
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-              <path d="M12 3L4 9V21L12 15L20 21V9L12 3Z" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-              <path d="M12 15V3" stroke="white" strokeWidth="2" strokeLinecap="round" opacity="0.4" />
-              <circle cx="12" cy="15" r="2" fill="white" />
-            </svg>
-          </div>
-          <div style={{ minWidth: 0 }}>
-            <div style={{ fontSize: 14, fontWeight: 800, letterSpacing: '-0.02em', color: 'rgba(255,255,255,0.96)' }}>DevFlow</div>
-            <div className="db-muted" style={{ fontSize: 11 }}>Dashboard</div>
-          </div>
+      <nav className="db-topbar">
+        <div className="db-topbar-bg" aria-hidden="true">
+          <div className="db-bg-ink" />
+          <div className="db-bg-orb db-bg-orb--a" />
+          <div className="db-bg-orb db-bg-orb--b" />
+          <div className="db-bg-orb db-bg-orb--c" />
+          <div className="db-bg-glint" />
+          <div className="db-bg-sheen" />
+          <div className="db-bg-noise" />
+          <div className="db-bg-vignette" />
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <div className="db-user">
-            <div className="db-avatar">{initials}</div>
-            <div className="db-user-text" style={{ minWidth: 0 }}>
-              <div style={{ fontSize: 12, fontWeight: 700 }}>{firstName}</div>
-              <div className="db-muted" style={{ fontSize: 11, maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user?.email}</div>
+        <div className="db-topbar-inner">
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+            <div className="db-brand" aria-hidden="true">
+              <div style={{
+                position: 'absolute',
+                inset: 0,
+                background: 'radial-gradient(circle at 30% 30%, rgba(255,255,255,0.1) 0%, transparent 70%)',
+              }} />
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                <path d="M12 3L4 9V21L12 15L20 21V9L12 3Z" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                <path d="M12 15V3" stroke="white" strokeWidth="2" strokeLinecap="round" opacity="0.4" />
+                <circle cx="12" cy="15" r="2" fill="white" />
+              </svg>
+            </div>
+            <div style={{ minWidth: 0 }}>
+              <div style={{ fontSize: 14, fontWeight: 800, letterSpacing: '-0.02em', color: 'rgba(255,255,255,0.96)' }}>DevFlow</div>
+              <div className="db-muted" style={{ fontSize: 11 }}>Dashboard</div>
             </div>
           </div>
-          <button className="db-btn" onClick={clearAuth}>Sign out</button>
+
+          <div className="db-topbar-links" role="navigation" aria-label="Site pages">
+            <Link className="db-nav-link" to="/">Home</Link>
+            <Link className="db-nav-link" to="/about">About</Link>
+            <Link className="db-nav-link" to="/contact">Contact</Link>
+            <Link className="db-nav-link" to="/#pricing">Pricing</Link>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, justifyContent: 'flex-end' }}>
+            <div className="db-user">
+              <div className="db-avatar">{initials}</div>
+              <div className="db-user-text" style={{ minWidth: 0 }}>
+                <div style={{ fontSize: 12, fontWeight: 700 }}>{firstName}</div>
+                <div className="db-muted" style={{ fontSize: 11, maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user?.email}</div>
+              </div>
+            </div>
+            <button className="db-btn" onClick={clearAuth}>Sign out</button>
+          </div>
         </div>
       </nav>
 
       <main className="db-page">
         <section className="db-hero">
           <div>
-            <div className="db-muted" style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.14em' }}>
+            <div className="db-hero-greeting">
               {getHour()}, {firstName}
             </div>
             <h1 className="db-title">Your workflow command center</h1>
-            <p className="db-soft" style={{ maxWidth: 660, fontSize: 14, lineHeight: 1.7 }}>
+            <p className="db-hero-lead">
               Browse workspaces, open active flows, and keep your API automation work organized from one focused view.
             </p>
           </div>
@@ -619,37 +1060,58 @@ export default function DashboardPage({ onOpenWorkflow }: Props) {
               />
             </div>
 
-            {loading ? (
-              <LoadingState label="Loading workspaces..." />
-            ) : filteredWorkspaces.length === 0 ? (
-              <div className="db-empty">
-                <div style={{ fontWeight: 760, marginBottom: 6 }}>No workspaces found</div>
-                <div className="db-muted" style={{ fontSize: 13 }}>Create a workspace to start organizing workflows.</div>
-              </div>
-            ) : (
-              <div className="db-workspace-list">
-                {filteredWorkspaces.map(ws => {
-                  const count = workflows.filter(w => (w.workspace || 'My Workspace') === ws).length
-                  const active = ws === selectedWs
-                  return (
-                    <button
-                      key={ws}
-                      className={`db-workspace-item${active ? ' is-active' : ''}`}
-                      onClick={() => setSelectedWs(ws)}
-                    >
-                      <span style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
-                        <FolderIcon />
-                        <span style={{ minWidth: 0 }}>
-                          <span style={{ display: 'block', fontSize: 13, fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ws}</span>
-                          <span className="db-muted" style={{ display: 'block', fontSize: 11 }}>{count} workflow{count === 1 ? '' : 's'}</span>
-                        </span>
-                      </span>
-                      <span className="db-count">{count}</span>
-                    </button>
-                  )
-                })}
-              </div>
-            )}
+            <div className="db-panel-scroll custom-scrollbar">
+              {loading ? (
+                <LoadingState label="Loading workspaces..." />
+              ) : filteredWorkspaces.length === 0 ? (
+                <div className="db-empty">
+                  <div style={{ fontWeight: 760, marginBottom: 6 }}>No workspaces found</div>
+                  <div className="db-muted" style={{ fontSize: 13 }}>Create a workspace to start organizing workflows.</div>
+                </div>
+              ) : (
+                <div className="db-workspace-list">
+                  {filteredWorkspaces.map(ws => {
+                    const count = workflows.filter(w => (w.workspace || 'My Workspace') === ws).length
+                    const active = ws === selectedWs
+                    const canDelete = ws !== 'My Workspace'
+                    return (
+                      <div key={ws} className={`db-workspace-row${active ? ' is-active' : ''}`}>
+                        <button type="button" className="db-workspace-select" onClick={() => setSelectedWs(ws)}>
+                          <span style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+                            <FolderIcon />
+                            <span style={{ minWidth: 0 }}>
+                              <span style={{ display: 'block', fontSize: 13, fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ws}</span>
+                              <span className="db-muted" style={{ display: 'block', fontSize: 11 }}>{count} workflow{count === 1 ? '' : 's'}</span>
+                            </span>
+                          </span>
+                          <span className="db-count">{count}</span>
+                        </button>
+                        <div className="db-workspace-actions">
+                          <button
+                            type="button"
+                            className="db-action"
+                            title="Rename workspace"
+                            onClick={(e) => { e.stopPropagation(); openRenameWorkspace(ws) }}
+                          >
+                            <EditIcon />
+                          </button>
+                          <button
+                            type="button"
+                            className="db-action"
+                            title={canDelete ? 'Delete workspace' : 'Default workspace cannot be deleted'}
+                            disabled={!canDelete}
+                            onClick={(e) => { e.stopPropagation(); if (canDelete) openDeleteWorkspace(ws) }}
+                            style={{ opacity: canDelete ? 1 : 0.35, cursor: canDelete ? 'pointer' : 'not-allowed' }}
+                          >
+                            <TrashIcon />
+                          </button>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
           </aside>
 
           <section className="db-panel">
@@ -679,38 +1141,40 @@ export default function DashboardPage({ onOpenWorkflow }: Props) {
               </button>
             </div>
 
-            {loading ? (
-              <LoadingState label="Loading workflows..." />
-            ) : selectedWs && selectedWorkflows.length === 0 ? (
-              <div className="db-empty">
-                <div className="db-folder" style={{ margin: '0 auto 14px' }}>
-                  <BoltIcon />
+            <div className="db-panel-scroll custom-scrollbar">
+              {loading ? (
+                <LoadingState label="Loading workflows..." />
+              ) : selectedWs && selectedWorkflows.length === 0 ? (
+                <div className="db-empty">
+                  <div className="db-folder" style={{ margin: '0 auto 14px' }}>
+                    <BoltIcon />
+                  </div>
+                  <div style={{ fontSize: 16, fontWeight: 800, marginBottom: 6 }}>No workflows yet</div>
+                  <div className="db-muted" style={{ fontSize: 13, marginBottom: 18 }}>Create the first workflow inside this workspace.</div>
+                  <button className="db-btn db-btn-primary" onClick={() => createWorkflow(selectedWs)} style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                    <PlusIcon />
+                    Create workflow
+                  </button>
                 </div>
-                <div style={{ fontSize: 16, fontWeight: 800, marginBottom: 6 }}>No workflows yet</div>
-                <div className="db-muted" style={{ fontSize: 13, marginBottom: 18 }}>Create the first workflow inside this workspace.</div>
-                <button className="db-btn db-btn-primary" onClick={() => createWorkflow(selectedWs)} style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-                  <PlusIcon />
-                  Create workflow
-                </button>
-              </div>
-            ) : selectedWs ? (
-              <div className="db-workflow-list">
-                {selectedWorkflows.map(wf => (
-                  <WorkflowRow
-                    key={wf.id}
-                    wf={wf}
-                    onOpen={() => onOpenWorkflow(wf.id, wf.name, wf.workspace || 'My Workspace', wf.nodes, wf.edges)}
-                    onRenameWorkflow={handleRenameWorkflow}
-                    onDeleteWorkflow={handleDeleteWorkflow}
-                  />
-                ))}
-              </div>
-            ) : (
-              <div className="db-empty">
-                <div style={{ fontWeight: 760, marginBottom: 6 }}>Select a workspace</div>
-                <div className="db-muted" style={{ fontSize: 13 }}>Your workflows will appear here.</div>
-              </div>
-            )}
+              ) : selectedWs ? (
+                <div className="db-workflow-list">
+                  {selectedWorkflows.map(wf => (
+                    <WorkflowRow
+                      key={wf.id}
+                      wf={wf}
+                      onOpen={() => onOpenWorkflow(wf.id, wf.name, wf.workspace || 'My Workspace', wf.nodes, wf.edges)}
+                      onRenameWorkflow={handleRenameWorkflow}
+                      onDeleteWorkflow={handleDeleteWorkflow}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <div className="db-empty">
+                  <div style={{ fontWeight: 760, marginBottom: 6 }}>Select a workspace</div>
+                  <div className="db-muted" style={{ fontSize: 13 }}>Your workflows will appear here.</div>
+                </div>
+              )}
+            </div>
           </section>
         </section>
       </main>
@@ -733,6 +1197,52 @@ export default function DashboardPage({ onOpenWorkflow }: Props) {
             <div style={{ display: 'flex', gap: 8 }}>
               <button className="db-btn" onClick={() => setShowModal(false)} style={{ flex: 1 }}>Cancel</button>
               <button className="db-btn db-btn-primary" onClick={handleCreateWs} style={{ flex: 1.4 }}>Create</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {renameModal && (
+        <div className="db-modal">
+          <div className="db-modal-backdrop" onClick={() => setRenameModal(null)} />
+          <div className="db-modal-panel">
+            <h2 style={{ fontSize: 20, fontWeight: 800, margin: '0 0 6px' }}>Rename workspace</h2>
+            <p className="db-muted" style={{ fontSize: 13, marginBottom: 18 }}>All workflows in this workspace move to the new name.</p>
+            <input
+              autoFocus
+              className="db-input"
+              value={renameDraft}
+              style={{ paddingLeft: 12, marginBottom: 14 }}
+              onChange={e => setRenameDraft(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && handleConfirmRenameWorkspace()}
+              placeholder="Workspace name"
+            />
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button className="db-btn" onClick={() => setRenameModal(null)} style={{ flex: 1 }}>Cancel</button>
+              <button className="db-btn db-btn-primary" onClick={() => void handleConfirmRenameWorkspace()} style={{ flex: 1.4 }}>Save</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {deleteModal && (
+        <div className="db-modal">
+          <div className="db-modal-backdrop" onClick={() => setDeleteModal(null)} />
+          <div className="db-modal-panel">
+            <h2 style={{ fontSize: 20, fontWeight: 800, margin: '0 0 6px' }}>Delete workspace</h2>
+            <p className="db-muted" style={{ fontSize: 13, marginBottom: 18 }}>
+              <strong style={{ color: 'rgba(255,255,255,0.88)' }}>{deleteModal.name}</strong>
+              {' '}will be removed. Workflows in it are moved to <strong style={{ color: 'rgba(255,255,255,0.88)' }}>My Workspace</strong>.
+            </p>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button className="db-btn" onClick={() => setDeleteModal(null)} style={{ flex: 1 }}>Cancel</button>
+              <button
+                className="db-btn"
+                onClick={() => void handleConfirmDeleteWorkspace()}
+                style={{ flex: 1.4, borderColor: 'rgba(248,113,113,0.45)', color: '#fecaca' }}
+              >
+                Delete workspace
+              </button>
             </div>
           </div>
         </div>

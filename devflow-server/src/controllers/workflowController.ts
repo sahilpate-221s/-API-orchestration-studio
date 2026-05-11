@@ -1,4 +1,5 @@
 import { Response } from 'express'
+import mongoose from 'mongoose'
 import { AuthRequest } from '../middleware/auth'
 import Workflow from '../models/Workflow'
 import Workspace from '../models/Workspace'
@@ -25,6 +26,81 @@ export async function createWorkspace(req: AuthRequest, res: Response): Promise<
       { new: true, upsert: true }
     )
     res.status(201).json({ workspace })
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err })
+  }
+}
+
+const paramId = (id: string | string[] | undefined): string =>
+  Array.isArray(id) ? (id[0] ?? '') : (id ?? '')
+
+export async function updateWorkspace(req: AuthRequest, res: Response): Promise<void> {
+  try {
+    const workspaceId = paramId(req.params.workspaceId)
+    if (!mongoose.Types.ObjectId.isValid(workspaceId)) {
+      res.status(400).json({ message: 'Invalid workspace id' })
+      return
+    }
+    const newName = normalizeWorkspaceName(req.body?.name)
+    const ws = await Workspace.findOne({ _id: workspaceId, userId: req.user!.id })
+    if (!ws) {
+      res.status(404).json({ message: 'Workspace not found' })
+      return
+    }
+    if (ws.name === newName) {
+      res.json({ workspace: ws })
+      return
+    }
+    const clash = await Workspace.findOne({
+      userId: req.user!.id,
+      name: newName,
+      _id: { $ne: ws._id },
+    })
+    if (clash) {
+      res.status(409).json({ message: 'A workspace with that name already exists' })
+      return
+    }
+    const oldName = ws.name
+    ws.name = newName
+    await ws.save()
+    await Workflow.updateMany(
+      { userId: req.user!.id, workspace: oldName },
+      { $set: { workspace: newName } }
+    )
+    res.json({ workspace: ws })
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err })
+  }
+}
+
+export async function deleteWorkspace(req: AuthRequest, res: Response): Promise<void> {
+  try {
+    const workspaceId = paramId(req.params.workspaceId)
+    if (!mongoose.Types.ObjectId.isValid(workspaceId)) {
+      res.status(400).json({ message: 'Invalid workspace id' })
+      return
+    }
+    const ws = await Workspace.findOne({ _id: workspaceId, userId: req.user!.id })
+    if (!ws) {
+      res.status(404).json({ message: 'Workspace not found' })
+      return
+    }
+    if (ws.name === 'My Workspace') {
+      res.status(400).json({ message: 'The default workspace cannot be deleted' })
+      return
+    }
+    const defaultName = 'My Workspace'
+    await Workflow.updateMany(
+      { userId: req.user!.id, workspace: ws.name },
+      { $set: { workspace: defaultName } }
+    )
+    await Workspace.findOneAndUpdate(
+      { userId: req.user!.id, name: defaultName },
+      { $setOnInsert: { userId: req.user!.id, name: defaultName } },
+      { upsert: true }
+    )
+    await Workspace.findByIdAndDelete(ws._id)
+    res.json({ message: 'Workspace deleted', migratedTo: defaultName })
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err })
   }

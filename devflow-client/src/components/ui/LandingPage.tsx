@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import Footer from './Footer'
 
 interface GSAP {
   timeline(): any
@@ -518,32 +519,7 @@ export default function LandingPage({ onAction }: { onAction: (mode: 'login' | '
          </div>
       </section>
 
-      {/* Footer */}
-      <footer style={{ padding: '120px 100px', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr', gap: '100px', maxWidth: '1400px', margin: '0 auto' }}>
-           <div>
-              <div style={{ fontSize: '24px', fontWeight: 800, marginBottom: '24px' }}>DevFlow</div>
-              <p style={{ color: 'rgba(255,255,255,0.3)', fontSize: '15px', lineHeight: 1.7, maxWidth: '280px' }}>
-                The world's most powerful visual API orchestration engine. Built for performance, designed for scale.
-              </p>
-           </div>
-           {[
-             { t: 'Product', l: ['Features', 'Engine', 'Templates', 'Pricing', 'Security'] },
-             { t: 'Company', l: ['About Us', 'Careers', 'Blog', 'News', 'Contact'] },
-             { t: 'Resources', l: ['Documentation', 'SDKs', 'Status', 'Open Source', 'Support'] },
-           ].map(c => (
-             <div key={c.t}>
-               <div style={{ fontSize: '16px', fontWeight: 700, marginBottom: '32px' }}>{c.t}</div>
-               <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                 {c.l.map(link => <a key={link} href="#" style={{ fontSize: '15px', color: 'rgba(255,255,255,0.4)', textDecoration: 'none' }}>{link}</a>)}
-               </div>
-             </div>
-           ))}
-        </div>
-        <div style={{ borderTop: '1px solid rgba(255,255,255,0.03)', marginTop: '100px', paddingTop: '40px', textAlign: 'center', color: 'rgba(255,255,255,0.2)', fontSize: '14px' }}>
-           © 2026 DevFlow Inc. Made with precision for the modern engineer.
-        </div>
-      </footer>
+      <Footer />
     </div>
   )
 }
