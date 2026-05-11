@@ -154,10 +154,32 @@ export default function LandingPage({ onAction }: { onAction: (mode: 'login' | '
         transition: 'all 0.4s ease',
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <div style={{ width: '32px', height: '32px', borderRadius: '10px', background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 0 20px rgba(255,255,255,0.2)' }}>
-             <svg width="18" height="18" viewBox="0 0 24 24" fill="#000"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+          <div style={{ 
+            width: '36px', 
+            height: '36px', 
+            borderRadius: '11px', 
+            background: 'rgba(255, 255, 255, 0.05)', 
+            border: '1px solid rgba(255, 255, 255, 0.15)',
+            display: 'flex', 
+            alignItems: 'center', 
+            justifyContent: 'center', 
+            boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
+            position: 'relative',
+            overflow: 'hidden'
+          }}>
+             <div style={{
+               position: 'absolute',
+               width: '100%',
+               height: '100%',
+               background: 'radial-gradient(circle at 30% 30%, rgba(255,255,255,0.15) 0%, transparent 70%)',
+             }} />
+             <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+               <path d="M12 3L4 9V21L12 15L20 21V9L12 3Z" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+               <path d="M12 15V3" stroke="white" strokeWidth="2" strokeLinecap="round" opacity="0.4" />
+               <circle cx="12" cy="15" r="2" fill="white" />
+             </svg>
           </div>
-          <span style={{ fontSize: '22px', fontWeight: 800, letterSpacing: '-0.04em' }}>DevFlow</span>
+          <span style={{ fontSize: '24px', fontWeight: 800, letterSpacing: '-0.04em' }}>DevFlow</span>
         </div>
         <div style={{ display: 'flex', gap: '48px', alignItems: 'center' }}>
           <a href="#features" className="nav-link">Features</a>
@@ -189,7 +211,7 @@ export default function LandingPage({ onAction }: { onAction: (mode: 'login' | '
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
-        background: 'radial-gradient(circle at 50% 10%, rgba(99,102,241,0.15) 0%, transparent 50%)',
+        background: 'radial-gradient(circle at 50% 10%, rgba(255,255,255,0.05) 0%, transparent 50%)',
       }}>
         <h1 ref={titleRef} style={{
           fontSize: '110px',
@@ -240,8 +262,8 @@ export default function LandingPage({ onAction }: { onAction: (mode: 'login' | '
           position: 'relative',
         }}>
           <div style={{ borderRadius: '38px', overflow: 'hidden', position: 'relative', background: '#0a0a0a' }}>
-            <div style={{ width: '100%', height: '500px', background: 'linear-gradient(135deg, #1e1e2e 0%, #2a1f4f 50%, #1a0f3a 100%)', borderRadius: '20px', position: 'relative', overflow: 'hidden' }}>
-              <div style={{ position: 'absolute', inset: 0, backgroundImage: 'radial-gradient(circle at 20% 80%, rgba(120, 119, 198, 0.3) 0%, transparent 50%), radial-gradient(circle at 80% 20%, rgba(255, 119, 198, 0.2) 0%, transparent 50%)' }} />
+            <div style={{ width: '100%', height: '500px', background: 'linear-gradient(135deg, #0c0c0c 0%, #1a1a1a 100%)', borderRadius: '20px', position: 'relative', overflow: 'hidden' }}>
+              <div style={{ position: 'absolute', inset: 0, backgroundImage: 'radial-gradient(circle at 20% 80%, rgba(255, 255, 255, 0.05) 0%, transparent 50%), radial-gradient(circle at 80% 20%, rgba(255, 255, 255, 0.03) 0%, transparent 50%)' }} />
               <div style={{ position: 'relative', zIndex: 2, padding: '40px', color: '#fff', height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
                 <div style={{ fontSize: '24px', fontWeight: 700, marginBottom: '16px', opacity: 0.9 }}>DevFlow Dashboard Preview</div>
                 <div style={{ fontSize: '14px', opacity: 0.6, maxWidth: '300px' }}>Drag & drop workflow nodes, real-time execution preview, and seamless API orchestration interface.</div>
@@ -273,10 +295,10 @@ export default function LandingPage({ onAction }: { onAction: (mode: 'login' | '
            </div>
            <div className="gsap-reveal" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
               <div className="code-block">
-                <div style={{ color: '#6366f1', marginBottom: '8px' }}>// Initialize Flow Engine</div>
+                <div style={{ color: '#ffffff', opacity: 0.4, marginBottom: '8px' }}>// Initialize Flow Engine</div>
                 <div>const engine = new DevFlow('v2.0');</div>
                 <br />
-                <div style={{ color: '#818cf8' }}>engine.on('webhook_received', async (ctx) =&gt; &#123;</div>
+                <div style={{ color: '#ffffff' }}>engine.on('webhook_received', async (ctx) =&gt; &#123;</div>
                 <div style={{ paddingLeft: '20px' }}>
                   await ctx.validate(); <br />
                   await ctx.transform('user_data'); <br />
@@ -315,7 +337,7 @@ export default function LandingPage({ onAction }: { onAction: (mode: 'login' | '
                    Stop wrestling with JSON configuration files. Our high-performance canvas allows you to map out complex logic with intuitive drag-and-drop nodes.
                 </p>
               </div>
-              <div style={{ position: 'absolute', right: '-40px', bottom: '-40px', width: '400px', height: '300px', background: 'rgba(99,102,241,0.1)', borderRadius: '40px', border: '1px solid rgba(99,102,241,0.2)' }} />
+              <div style={{ position: 'absolute', right: '-40px', bottom: '-40px', width: '400px', height: '300px', background: 'rgba(255,255,255,0.02)', borderRadius: '40px', border: '1px solid rgba(255,255,255,0.05)' }} />
            </div>
            
            {/* Bento 2: Latency */}
@@ -412,7 +434,7 @@ export default function LandingPage({ onAction }: { onAction: (mode: 'login' | '
             <p>
               We provide the flexibility of code with the speed of a visual interface. Our "Visual Logic" approach allows your entire team—from developers to product managers—to understand exactly how data moves through your system.
             </p>
-            <blockquote style={{ paddingLeft: '32px', borderLeft: '4px solid #6366f1', color: '#fff', fontSize: '24px', fontWeight: 600, fontStyle: 'italic', margin: '20px 0' }}>
+            <blockquote style={{ paddingLeft: '32px', borderLeft: '4px solid #ffffff', color: '#fff', fontSize: '24px', fontWeight: 600, fontStyle: 'italic', margin: '20px 0' }}>
               "DevFlow has reduced our integration cycle from weeks to hours. It is the most important tool in our stack."
             </blockquote>
             <p>
@@ -441,7 +463,7 @@ export default function LandingPage({ onAction }: { onAction: (mode: 'login' | '
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginBottom: '50px' }}>
                    {p.features.map(f => (
                      <div key={f} style={{ display: 'flex', gap: '12px', fontSize: '15px', color: 'rgba(255,255,255,0.5)' }}>
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={p.featured ? '#6366f1' : '#fff'} strokeWidth="3"><polyline points="20 6 9 17 4 12"/></svg>
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={p.featured ? '#ffffff' : '#444'} strokeWidth="3"><polyline points="20 6 9 17 4 12"/></svg>
                         {f}
                      </div>
                    ))}

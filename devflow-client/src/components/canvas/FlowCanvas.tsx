@@ -1,4 +1,4 @@
-import { useCallback, useRef } from 'react'
+import { useCallback, useRef, useMemo } from 'react'
 import ReactFlow, {
   Background,
   BackgroundVariant,
@@ -18,6 +18,8 @@ export default function FlowCanvas() {
     onNodesChange, onEdgesChange, onConnect,
     addNode, setSelectedNode,
   } = useFlowStore()
+
+  const memoNodeTypes = useMemo(() => nodeTypes, [])
 
   const onDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault()
@@ -60,14 +62,16 @@ export default function FlowCanvas() {
         onInit={(instance) => { rfInstance.current = instance }}
         onNodeClick={onNodeClick}
         onPaneClick={onPaneClick}
-        nodeTypes={nodeTypes}
+        nodeTypes={memoNodeTypes}
         fitView
-        fitViewOptions={{ padding: 0.3 }}
+        fitViewOptions={{ padding: 0.5, maxZoom: 0.5 }}
+        maxZoom={4}
+        minZoom={0.1}
         proOptions={{ hideAttribution: true }}
         deleteKeyCode="Delete"
       >
         <Background variant={BackgroundVariant.Dots} gap={20} size={1} color="#1f1f1f" />
-        <Controls showInteractive={false} className="!bottom-6 !left-6" />
+        <Controls showInteractive={false} showFitView={false} className="!bottom-6 !left-6" />
         <MiniMap
           className="!bottom-6 !right-6"
           nodeColor="#1a1a1a"

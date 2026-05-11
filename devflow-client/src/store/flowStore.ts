@@ -18,6 +18,8 @@ type FlowStore = {
   setSelectedNode: (id: string | null) => void
   setWorkflowMeta: (id: string, name: string, workspace: string) => void
   setFlow: (nodes: FlowNode[], edges: FlowEdge[]) => void
+  exportWorkflow: () => string
+  importWorkflow: (json: string) => void
 }
 
 function wouldCreateCycle(edges: FlowEdge[], source: string, target: string): boolean {
@@ -69,7 +71,7 @@ export const useFlowStore = create<FlowStore>((set, get) => ({
 
     set({
       edges: addEdge(
-        { ...connection, animated: true, style: { stroke: '#6366f1', strokeWidth: 1.5, strokeOpacity: 0.6 } },
+        { ...connection, animated: true, style: { stroke: '#ffffff', strokeWidth: 1.5, strokeOpacity: 0.6 } },
         edges
       ) as FlowEdge[],
     })
@@ -105,4 +107,24 @@ export const useFlowStore = create<FlowStore>((set, get) => ({
   setSelectedNode: (id) => set({ selectedNodeId: id }),
   setWorkflowMeta: (id, name, workspace) => set({ workflowId: id, workflowName: name, workspace: workspace || 'My Workspace' }),
   setFlow: (nodes, edges) => set({ nodes, edges }),
+  exportWorkflow: () => {
+    const { nodes, edges, workflowName } = get()
+    return JSON.stringify({ name: workflowName, nodes, edges }, null, 2)
+  },
+  importWorkflow: (json: string | object) => {
+    try {
+      const data = typeof json === 'string' ? JSON.parse(json) : json
+      set({
+        nodes: data.nodes ?? [],
+        edges: data.edges ?? [],
+        workflowName: data.name ?? get().workflowName,
+        // Preserve current workflowId so we don't get redirected by App.tsx
+        workflowId: get().workflowId, 
+        selectedNodeId: null,
+      })
+    } catch (err) {
+      console.error('Workflow import failed:', err)
+      alert('Invalid workflow data')
+    }
+  },
 }))

@@ -19,7 +19,7 @@
 
   --shadow-node: 0 2px 8px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.04);
   --shadow-nodeHover: 0 4px 16px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.06);
-  --shadow-glow-blue: 0 0 0 1px rgba(99,102,241,0.5), 0 0 20px rgba(99,102,241,0.15);
+  --shadow-glow-blue: 0 0 0 1px rgba(255,255,255,0.4), 0 0 20px rgba(255,255,255,0.1);
   --shadow-glow-green: 0 0 0 1px rgba(16,185,129,0.5), 0 0 20px rgba(16,185,129,0.15);
   --shadow-glow-red: 0 0 0 1px rgba(239,68,68,0.4), 0 0 20px rgba(239,68,68,0.12);
 }
@@ -96,7 +96,7 @@ html, body, #root {
 }
 
 .react-flow__edge.selected .react-flow__edge-path {
-  stroke: #6366f1 !important;
+  stroke: #ffffff !important;
 }
 
 .react-flow__handle {
@@ -104,6 +104,21 @@ html, body, #root {
 }
 
 .react-flow__connection-line {
-  stroke: #6366f1 !important;
+  stroke: #ffffff !important;
   stroke-width: 1.5 !important;
+}
+
+/* Custom Scrollbar */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 5px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 10px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.1);
 }

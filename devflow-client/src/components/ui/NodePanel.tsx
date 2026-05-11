@@ -11,7 +11,19 @@ const methodConfig: Record<string, { color: string; bg: string; border: string }
   POST:   { color: '#60a5fa', bg: 'rgba(96,165,250,0.10)',  border: 'rgba(96,165,250,0.20)' },
   PUT:    { color: '#fbbf24', bg: 'rgba(251,191,36,0.10)',  border: 'rgba(251,191,36,0.20)' },
   DELETE: { color: '#f87171', bg: 'rgba(248,113,113,0.10)', border: 'rgba(248,113,113,0.20)' },
-  PATCH:  { color: '#a78bfa', bg: 'rgba(167,139,250,0.10)', border: 'rgba(167,139,250,0.20)' },
+  PATCH:  { color: '#ffffff', bg: 'rgba(255,255,255,0.05)', border: 'rgba(255,255,255,0.15)' },
+}
+
+const inputStyle: React.CSSProperties = {
+  width: '100%',
+  background: 'rgba(255,255,255,0.04)',
+  border: '1px solid rgba(255,255,255,0.08)',
+  borderRadius: '10px',
+  padding: '10px 14px',
+  fontSize: '13px',
+  color: 'white',
+  outline: 'none',
+  transition: 'all 0.15s ease',
 }
 
 export default function NodePanel() {
@@ -26,7 +38,7 @@ export default function NodePanel() {
   useEffect(() => {
     if (selectedNode) setForm(selectedNode.data)
     else setForm({})
-  }, [selectedNodeId])
+  }, [selectedNodeId, selectedNode])
 
   if (!selectedNode) return null
 
@@ -48,6 +60,33 @@ export default function NodePanel() {
       console.error('AI generation failed', err)
     } finally {
       setAiLoading(false)
+    }
+  }
+
+  const [aiFixing, setAiFixing] = useState(false)
+  const fixWithAI = async () => {
+    if (!selectedNode.data.error) return
+    setAiFixing(true)
+    try {
+      const res = await api.post('/ai/fix', { 
+        error: selectedNode.data.error,
+        config: {
+          method: form.method,
+          url: form.url,
+          headers: form.headers,
+          body: form.body
+        }
+      })
+      const { method, url, headers, body, explanation } = res.data.config
+      updateNodeData(selectedNode.id, { method, url, headers, body })
+      setForm((prev) => ({ ...prev, method, url, headers, body }))
+      
+      // We could show a toast here, but we'll just log it for now
+      console.log('AI Fix Applied:', explanation)
+    } catch (err) {
+      console.error('AI fixing failed', err)
+    } finally {
+      setAiFixing(false)
     }
   }
 
@@ -178,7 +217,7 @@ export default function NodePanel() {
                 onKeyDown={(e) => e.key === 'Enter' && generateWithAI()}
                 placeholder="Fetch all GitHub repos for a user..."
                 style={{ ...inputStyle, flex: 1, fontSize: '11px' }}
-                onFocus={(e) => (e.currentTarget.style.borderColor = 'rgba(99,102,241,0.55)')}
+                onFocus={(e) => (e.currentTarget.style.borderColor = 'rgba(255,255,255,0.3)')}
                 onBlur={(e) => (e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)')}
               />
               <button
@@ -187,8 +226,8 @@ export default function NodePanel() {
                 style={{
                   minWidth: '44px',
                   borderRadius: '10px',
-                  border: '1px solid rgba(99,102,241,0.30)',
-                  background: aiLoading || !aiPrompt.trim() ? 'rgba(99,102,241,0.18)' : '#6366f1',
+                  border: '1px solid rgba(255,255,255,0.15)',
+                  background: aiLoading || !aiPrompt.trim() ? 'rgba(255,255,255,0.05)' : 'rgba(255,255,255,0.1)',
                   color: '#ffffff',
                   fontSize: '11px',
                   fontWeight: 700,
@@ -331,18 +370,51 @@ export default function NodePanel() {
 
           {/* Error Viewer */}
           {selectedNode.data.error && (
-            <Section label="Error">
+            <Section label="Execution Error">
               <div
                 style={{
                   background: 'rgba(239,68,68,0.05)',
                   border: '1px solid rgba(239,68,68,0.20)',
                   borderRadius: '12px',
-                  padding: '10px 12px',
+                  padding: '12px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '12px'
                 }}
               >
-                <p style={{ margin: 0, fontSize: '11px', color: '#f87171', fontFamily: 'monospace' }}>
+                <p style={{ margin: 0, fontSize: '11px', color: '#f87171', fontFamily: 'monospace', lineHeight: 1.4 }}>
                   {selectedNode.data.error}
                 </p>
+                <button
+                  onClick={fixWithAI}
+                  disabled={aiFixing}
+                  style={{
+                    background: aiFixing ? 'rgba(255,255,255,0.05)' : 'rgba(99, 102, 241, 0.15)',
+                    border: aiFixing ? '1px solid rgba(255,255,255,0.1)' : '1px solid rgba(99, 102, 241, 0.3)',
+                    color: aiFixing ? 'rgba(255,255,255,0.5)' : '#818cf8',
+                    padding: '8px 12px',
+                    borderRadius: '8px',
+                    fontSize: '11px',
+                    fontWeight: 600,
+                    cursor: aiFixing ? 'not-allowed' : 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '6px',
+                    transition: 'all 0.2s',
+                  }}
+                >
+                  {aiFixing ? (
+                    'Analyzing Error...'
+                  ) : (
+                    <>
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                        <path d="M12 2v4m0 12v4M4.93 4.93l2.83 2.83m8.48 8.48l2.83 2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m8.48-8.48l2.83-2.83" />
+                      </svg>
+                      Auto-Fix with AI
+                    </>
+                  )}
+                </button>
               </div>
             </Section>
           )}
@@ -399,18 +471,6 @@ function Section({ label, children }: { label: string; children: React.ReactNode
       {children}
     </div>
   )
-}
-
-const inputStyle: React.CSSProperties = {
-  width: '100%',
-  background: 'rgba(255,255,255,0.04)',
-  border: '1px solid rgba(255,255,255,0.08)',
-  borderRadius: '10px',
-  padding: '10px 14px',
-  fontSize: '13px',
-  color: 'white',
-  outline: 'none',
-  transition: 'all 0.15s ease',
 }
 
 function HeadersEditor({ value, onChange }: { value: Record<string, string>; onChange: (v: Record<string, string>) => void }) {

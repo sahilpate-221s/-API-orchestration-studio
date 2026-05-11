@@ -74,3 +74,47 @@ export async function generateApiCall(description: string): Promise<{
     }
   }
 }
+
+export async function fixApiCall(error: string, config: any): Promise<{
+  method: string
+  url: string
+  headers: Record<string, string>
+  body: string
+  explanation?: string
+}> {
+  try {
+    const completion = await openai.chat.completions.create({
+      model: 'gpt-4o-mini',
+      messages: [
+        {
+          role: 'system',
+          content: `You are an expert API debugger. 
+          The user has an API call that failed.
+          You must fix their configuration based on the error message.
+          Return ONLY a JSON object with these exact fields:
+          {
+            "method": "GET|POST|PUT|DELETE|PATCH",
+            "url": "full url with https://",
+            "headers": { "key": "value" },
+            "body": "JSON string or empty string",
+            "explanation": "A very short 1-sentence explanation of what you fixed"
+          }
+          No explanation text outside the JSON. No markdown backticks. Just the raw JSON object.`,
+        },
+        {
+          role: 'user',
+          content: `Current Config: ${JSON.stringify(config)}\n\nError Message: ${error}`,
+        },
+      ],
+      temperature: 0.2,
+      max_tokens: 500,
+    })
+
+    const raw = completion.choices[0].message.content ?? '{}'
+    const cleaned = raw.replace(/^```json\n?/, '').replace(/\n?```$/, '').trim()
+    return JSON.parse(cleaned)
+  } catch (err) {
+    console.warn('OpenAI API failed. Returning original config.')
+    return config // fallback to returning the same config if AI fails
+  }
+}

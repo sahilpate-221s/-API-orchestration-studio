@@ -12,16 +12,57 @@ const getHour = () => {
 
 const uniqueNames = (names: string[]) =>
   Array.from(new Set(names.map((name) => name.trim()).filter(Boolean)))
-
 const CSS = `
 @keyframes spin { to { transform: rotate(360deg) } }
 @keyframes fadeUp { from { opacity: 0; transform: translateY(10px) } to { opacity: 1; transform: none } }
+@keyframes grid-move {
+  0% { background-position: 0 0; }
+  100% { background-position: 0 60px; }
+}
 
 .db-shell {
   min-height: 100vh;
-  background: #0a0a0a;
+  background: #000000;
   color: #ffffff;
   font-family: Inter, system-ui, sans-serif;
+  position: relative;
+  overflow: hidden;
+}
+
+.tron-grid-container {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+  perspective: 1000px;
+}
+
+.tron-grid {
+  position: absolute;
+  bottom: -30vh;
+  left: -50vw;
+  width: 200vw;
+  height: 80vh;
+  background-image: 
+    linear-gradient(rgba(99, 102, 241, 0.4) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(99, 102, 241, 0.4) 1px, transparent 1px);
+  background-size: 60px 60px;
+  transform: rotateX(75deg);
+  transform-origin: top;
+  animation: grid-move 2s linear infinite;
+  mask-image: linear-gradient(transparent 0%, black 60%);
+  -webkit-mask-image: linear-gradient(transparent 0%, black 60%);
+}
+
+.tron-glow {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 40vh;
+  background: linear-gradient(to top, rgba(99, 102, 241, 0.15), transparent);
+  pointer-events: none;
 }
 
 .db-topbar {
@@ -40,18 +81,22 @@ const CSS = `
 
 .db-brand, .db-user, .db-stat, .db-panel, .db-workspace-item, .db-workflow-row, .db-empty {
   border: 1px solid rgba(255,255,255,0.06);
-  background: rgba(255,255,255,0.03);
-  box-shadow: 0 12px 36px rgba(0,0,0,0.28);
+  background: rgba(15, 15, 15, 0.7);
+  backdrop-filter: blur(24px);
+  box-shadow: 0 12px 36px rgba(0,0,0,0.4);
 }
 
 .db-brand {
   width: 32px;
   height: 32px;
-  border-radius: 8px;
-  background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.12);
   display: grid;
   place-items: center;
-  box-shadow: 0 0 0 1px rgba(99,102,241,0.35), 0 8px 22px rgba(99,102,241,0.22);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+  position: relative;
+  overflow: hidden;
 }
 
 .db-user {
@@ -112,6 +157,8 @@ const CSS = `
   margin: 0 auto;
   padding: 34px 24px 80px;
   animation: fadeUp 0.35s ease;
+  position: relative;
+  z-index: 5;
 }
 
 .db-hero {
@@ -153,8 +200,8 @@ const CSS = `
   height: 32px;
   border-radius: 7px;
   border: 1px solid rgba(255,255,255,0.08);
-  background: rgba(99,102,241,0.10);
-  color: #a5b4fc;
+  background: rgba(255,255,255,0.05);
+  color: #ffffff;
   display: grid;
   place-items: center;
   flex: 0 0 auto;
@@ -203,9 +250,9 @@ const CSS = `
 
 .db-input::placeholder { color: rgba(255,255,255,0.24); }
 .db-input:focus {
-  background: rgba(99,102,241,0.06);
-  border-color: rgba(99,102,241,0.55);
-  box-shadow: 0 0 0 3px rgba(99,102,241,0.14);
+  background: rgba(255,255,255,0.03);
+  border-color: rgba(255,255,255,0.3);
+  box-shadow: 0 0 0 3px rgba(255,255,255,0.05);
 }
 
 .db-workspace-list {
@@ -234,8 +281,8 @@ const CSS = `
 
 .db-workspace-item:hover,
 .db-workspace-item.is-active {
-  background: rgba(99,102,241,0.10);
-  border-color: rgba(99,102,241,0.34);
+  background: rgba(255,255,255,0.06);
+  border-color: rgba(255,255,255,0.14);
 }
 
 .db-count {
@@ -252,8 +299,8 @@ const CSS = `
 }
 
 .db-workspace-item.is-active .db-count {
-  color: #c7d2fe;
-  border-color: rgba(99,102,241,0.34);
+  color: #ffffff;
+  border-color: rgba(255,255,255,0.2);
 }
 
 .db-main-head {
@@ -271,9 +318,9 @@ const CSS = `
   border-radius: 8px;
   display: grid;
   place-items: center;
-  border: 1px solid rgba(99,102,241,0.28);
-  background: rgba(99,102,241,0.11);
-  color: #a5b4fc;
+  border: 1px solid rgba(255,255,255,0.1);
+  background: rgba(255,255,255,0.05);
+  color: #ffffff;
   flex: 0 0 auto;
 }
 
@@ -488,16 +535,28 @@ export default function DashboardPage({ onOpenWorkflow }: Props) {
     <div className="db-shell">
       <style>{CSS}</style>
 
-      <nav className="db-topbar">
+      {/* Animated Background Elements */}
+      <div className="tron-grid-container">
+        <div className="tron-grid" />
+        <div className="tron-glow" />
+      </div>
+
+      <nav className="db-topbar" style={{ position: 'relative', zIndex: 10 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
           <div className="db-brand" aria-hidden="true">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-              <path d="M4 6h16M4 12h10M4 18h7" stroke="white" strokeWidth="2.5" strokeLinecap="round" />
-              <circle cx="19" cy="18" r="3" fill="white" fillOpacity="0.9" />
+            <div style={{
+              position: 'absolute',
+              inset: 0,
+              background: 'radial-gradient(circle at 30% 30%, rgba(255,255,255,0.1) 0%, transparent 70%)',
+            }} />
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+              <path d="M12 3L4 9V21L12 15L20 21V9L12 3Z" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+              <path d="M12 15V3" stroke="white" strokeWidth="2" strokeLinecap="round" opacity="0.4" />
+              <circle cx="12" cy="15" r="2" fill="white" />
             </svg>
           </div>
           <div style={{ minWidth: 0 }}>
-            <div style={{ fontSize: 14, fontWeight: 760, letterSpacing: 0 }}>DevFlow</div>
+            <div style={{ fontSize: 14, fontWeight: 800, letterSpacing: '-0.02em', color: 'rgba(255,255,255,0.96)' }}>DevFlow</div>
             <div className="db-muted" style={{ fontSize: 11 }}>Dashboard</div>
           </div>
         </div>
@@ -708,7 +767,7 @@ function Stat({ icon, label, value }: { icon: React.ReactNode; label: string; va
 function LoadingState({ label }: { label: string }) {
   return (
     <div style={{ display: 'grid', placeItems: 'center', padding: 48, gap: 12 }}>
-      <div style={{ width: 28, height: 28, borderRadius: '50%', border: '3px solid rgba(255,255,255,0.10)', borderTopColor: '#a5b4fc', animation: 'spin 0.8s linear infinite' }} />
+      <div style={{ width: 28, height: 28, borderRadius: '50%', border: '3px solid rgba(255,255,255,0.10)', borderTopColor: '#ffffff', animation: 'spin 0.8s linear infinite' }} />
       <div className="db-muted" style={{ fontSize: 13 }}>{label}</div>
     </div>
   )

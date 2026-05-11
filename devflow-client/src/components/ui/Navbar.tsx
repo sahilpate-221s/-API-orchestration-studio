@@ -3,10 +3,24 @@ import { useFlowStore } from '../../store/flowStore'
 import { saveWorkflow, createWorkflow } from '../../services/workflowService'
 import { useState, useEffect, useRef, useCallback } from 'react'
 
-export default function Navbar({ onHome }: { onHome?: () => void }) {
+export default function Navbar({ 
+  onHome, 
+  onHistoryClick, 
+  onLogClick, 
+  onPaletteClick,
+  onBenchmarkClick,
+  logOpen 
+}: { 
+  onHome?: () => void; 
+  onHistoryClick?: () => void; 
+  onLogClick?: () => void;
+  onPaletteClick?: () => void;
+  onBenchmarkClick?: () => void;
+  logOpen?: boolean;
+}) {
   const { runWorkflow, resetWorkflow, remaining } = useExecution()
   const { nodes, edges, workflowId, workflowName, workspace, setWorkflowMeta } = useFlowStore()
-  const isRunning = nodes.some((n) => n.data.status === 'running')
+  const isRunning = nodes?.some((n) => n.data.status === 'running') ?? false
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
 
   // Always keep a ref to the latest save function so the debounced effect never captures stale values
@@ -89,29 +103,54 @@ export default function Navbar({ onHome }: { onHome?: () => void }) {
         >
           <div
             style={{
-              width: '28px',
-              height: '28px',
-              borderRadius: '8px',
-              background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
+              width: '30px',
+              height: '30px',
+              borderRadius: '9px',
+              background: 'rgba(255, 255, 255, 0.03)',
+              border: '1px solid rgba(255, 255, 255, 0.12)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               flexShrink: 0,
-              boxShadow: '0 0 0 1px rgba(99,102,241,0.4), 0 4px 12px rgba(99,102,241,0.25)',
+              boxShadow: '0 4px 16px rgba(0,0,0,0.4)',
+              position: 'relative',
+              overflow: 'hidden',
             }}
           >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-              <path d="M4 6h16M4 12h10M4 18h7" stroke="white" strokeWidth="2.5" strokeLinecap="round" />
-              <circle cx="19" cy="18" r="3" fill="white" fillOpacity="0.9" />
+            {/* Subtle background glow */}
+            <div style={{
+              position: 'absolute',
+              width: '100%',
+              height: '100%',
+              background: 'radial-gradient(circle at 30% 30%, rgba(255,255,255,0.1) 0%, transparent 70%)',
+            }} />
+            
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+              <path 
+                d="M12 3L4 9V21L12 15L20 21V9L12 3Z" 
+                stroke="white" 
+                strokeWidth="2" 
+                strokeLinecap="round" 
+                strokeLinejoin="round"
+                opacity="0.9"
+              />
+              <path 
+                d="M12 15V3" 
+                stroke="white" 
+                strokeWidth="2" 
+                strokeLinecap="round"
+                opacity="0.4"
+              />
+              <circle cx="12" cy="15" r="2" fill="white" />
             </svg>
           </div>
 
           <span
             style={{
               fontSize: '14px',
-              fontWeight: 700,
-              color: 'rgba(255,255,255,0.92)',
-              letterSpacing: '-0.01em',
+              fontWeight: 800,
+              color: 'rgba(255,255,255,0.96)',
+              letterSpacing: '-0.02em',
               flexShrink: 0,
             }}
           >
@@ -147,6 +186,41 @@ export default function Navbar({ onHome }: { onHome?: () => void }) {
             <polyline points="6 9 12 15 18 9" />
           </svg>
         </button>
+
+        {/* Cmd+K Palette Trigger */}
+        <button
+          onClick={onPaletteClick}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            padding: '4px 10px',
+            background: 'rgba(255,255,255,0.04)',
+            border: '1px solid rgba(255,255,255,0.08)',
+            borderRadius: '10px',
+            cursor: 'pointer',
+            transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+            minWidth: '110px',
+          }}
+          onMouseEnter={(e) => {
+            const el = e.currentTarget as HTMLElement
+            el.style.background = 'rgba(255,255,255,0.07)'
+            el.style.borderColor = 'rgba(255,255,255,0.3)'
+            el.style.boxShadow = '0 0 15px rgba(255,255,255,0.1)'
+          }}
+          onMouseLeave={(e) => {
+            const el = e.currentTarget as HTMLElement
+            el.style.background = 'rgba(255,255,255,0.04)'
+            el.style.borderColor = 'rgba(255,255,255,0.08)'
+            el.style.boxShadow = 'none'
+          }}
+        >
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.4)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+          </svg>
+          <span style={{ fontSize: '11px', fontWeight: 500, color: 'rgba(255,255,255,0.4)' }}>Search</span>
+          <span style={{ fontSize: '9px', color: 'rgba(255,255,255,0.2)', background: 'rgba(255,255,255,0.05)', padding: '1px 4px', borderRadius: '4px', border: '1px solid rgba(255,255,255,0.06)', marginLeft: 'auto' }}>⌘K</span>
+        </button>
       </div>
 
       {/* ── Center: graph stats ── */}
@@ -154,36 +228,47 @@ export default function Navbar({ onHome }: { onHome?: () => void }) {
         style={{
           display: 'flex',
           alignItems: 'center',
-          gap: '6px',
-          padding: '4px 10px',
-          borderRadius: '6px',
+          gap: '10px',
+          padding: '4px 14px',
+          borderRadius: '12px',
           background: 'rgba(255,255,255,0.03)',
           border: '1px solid rgba(255,255,255,0.06)',
           flexShrink: 0,
         }}
       >
-        <div
-          style={{
-            width: '6px',
-            height: '6px',
-            borderRadius: '50%',
-            background: isRunning ? '#60a5fa' : '#4ade80',
-            boxShadow: isRunning
-              ? '0 0 6px rgba(96,165,250,0.7)'
-              : '0 0 6px rgba(74,222,128,0.7)',
-            flexShrink: 0,
-            animation: isRunning ? 'pulse 1.5s ease-in-out infinite' : 'none',
-          }}
-        />
-        <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.35)', whiteSpace: 'nowrap' }}>
-          {isRunning ? 'Running...' : `${nodes.length} nodes · ${edges.length} edges`}
-          {' · '}
-          {remaining} remaining
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <div
+            style={{
+              width: '6px',
+              height: '6px',
+              borderRadius: '50%',
+              background: isRunning ? '#60a5fa' : '#4ade80',
+              boxShadow: isRunning ? '0 0 8px rgba(96,165,250,0.6)' : '0 0 8px rgba(74,222,128,0.4)',
+              flexShrink: 0,
+              animation: isRunning ? 'pulse 1.5s ease-in-out infinite' : 'none',
+            }}
+          />
+          <span style={{ fontSize: '11px', fontWeight: 600, color: isRunning ? '#93c5fd' : 'rgba(255,255,255,0.5)', whiteSpace: 'nowrap' }}>
+            {isRunning ? 'RUNNING' : 'IDLE'}
+          </span>
+        </div>
+        
+        <div style={{ width: '1px', height: '10px', background: 'rgba(255,255,255,0.1)' }} />
+        
+        <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.3)', whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>
+          {nodes?.length ?? 0} nodes · {edges?.length ?? 0} edges
         </span>
+
+        <div style={{ width: '1px', height: '10px', background: 'rgba(255,255,255,0.1)' }} />
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+          <span style={{ fontSize: '11px', fontWeight: 700, color: remaining < 10 ? '#f87171' : '#ffffff' }}>{remaining}</span>
+          <span style={{ fontSize: '9px', fontWeight: 800, color: 'rgba(255,255,255,0.15)', textTransform: 'uppercase' }}>Credits</span>
+        </div>
       </div>
 
       {/* ── Right: actions ── */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
         {/* Reset button */}
         <button
           onClick={resetWorkflow}
@@ -191,28 +276,27 @@ export default function Navbar({ onHome }: { onHome?: () => void }) {
           style={{
             fontSize: '12px',
             fontWeight: 500,
-            color: isRunning ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.45)',
+            color: isRunning ? 'rgba(255,255,255,0.1)' : 'rgba(255,255,255,0.4)',
             background: 'rgba(255,255,255,0.03)',
             border: '1px solid rgba(255,255,255,0.06)',
             cursor: isRunning ? 'not-allowed' : 'pointer',
             padding: '5px 12px',
-            borderRadius: '6px',
+            borderRadius: '8px',
             transition: 'all 0.15s ease',
-            opacity: isRunning ? 0.4 : 1,
           }}
           onMouseEnter={(e) => {
             if (isRunning) return
             const el = e.currentTarget as HTMLElement
-            el.style.background = 'rgba(255,255,255,0.08)'
+            el.style.background = 'rgba(255,255,255,0.06)'
             el.style.borderColor = 'rgba(255,255,255,0.12)'
-            el.style.color = 'rgba(255,255,255,0.9)'
+            el.style.color = 'rgba(255,255,255,0.8)'
           }}
           onMouseLeave={(e) => {
             if (isRunning) return
             const el = e.currentTarget as HTMLElement
             el.style.background = 'rgba(255,255,255,0.03)'
             el.style.borderColor = 'rgba(255,255,255,0.06)'
-            el.style.color = 'rgba(255,255,255,0.45)'
+            el.style.color = 'rgba(255,255,255,0.4)'
           }}
         >
           Reset
@@ -225,74 +309,126 @@ export default function Navbar({ onHome }: { onHome?: () => void }) {
           style={{
             fontSize: '12px',
             fontWeight: 500,
-            color: saveStatus === 'saved'
-              ? '#4ade80'
-              : saveStatus === 'error'
-              ? '#f87171'
-              : saveStatus === 'saving'
-              ? 'rgba(255,255,255,0.2)'
-              : 'rgba(255,255,255,0.45)',
-            background: saveStatus === 'saved'
-              ? 'rgba(74,222,128,0.08)'
-              : saveStatus === 'error'
-              ? 'rgba(248,113,113,0.08)'
-              : 'rgba(255,255,255,0.03)',
-            border: saveStatus === 'saved'
-              ? '1px solid rgba(74,222,128,0.25)'
-              : saveStatus === 'error'
-              ? '1px solid rgba(248,113,113,0.25)'
-              : '1px solid rgba(255,255,255,0.06)',
+            color: saveStatus === 'saved' ? '#34d399' : saveStatus === 'error' ? '#f87171' : 'rgba(255,255,255,0.4)',
+            background: saveStatus === 'saved' ? 'rgba(52,211,153,0.08)' : saveStatus === 'error' ? 'rgba(248,113,113,0.08)' : 'rgba(255,255,255,0.03)',
+            border: '1px solid',
+            borderColor: saveStatus === 'saved' ? 'rgba(52,211,153,0.2)' : saveStatus === 'error' ? 'rgba(248,113,113,0.2)' : 'rgba(255,255,255,0.06)',
             cursor: saveStatus === 'saving' ? 'not-allowed' : 'pointer',
             padding: '5px 12px',
-            borderRadius: '6px',
+            borderRadius: '8px',
             transition: 'all 0.2s ease',
-            opacity: saveStatus === 'saving' ? 0.4 : 1,
           }}
           onMouseEnter={(e) => {
             if (saveStatus === 'saving') return
             const el = e.currentTarget as HTMLElement
-            el.style.background = 'rgba(255,255,255,0.08)'
+            el.style.background = 'rgba(255,255,255,0.06)'
             el.style.borderColor = 'rgba(255,255,255,0.12)'
-            el.style.color = 'rgba(255,255,255,0.9)'
+            el.style.color = 'rgba(255,255,255,0.8)'
           }}
           onMouseLeave={(e) => {
             if (saveStatus === 'saving') return
             const el = e.currentTarget as HTMLElement
-            el.style.background = saveStatus === 'saved' ? 'rgba(74,222,128,0.08)' : saveStatus === 'error' ? 'rgba(248,113,113,0.08)' : 'rgba(255,255,255,0.03)'
-            el.style.borderColor = saveStatus === 'saved' ? 'rgba(74,222,128,0.25)' : saveStatus === 'error' ? 'rgba(248,113,113,0.25)' : 'rgba(255,255,255,0.06)'
-            el.style.color = saveStatus === 'saved' ? '#4ade80' : saveStatus === 'error' ? '#f87171' : 'rgba(255,255,255,0.45)'
+            el.style.background = saveStatus === 'saved' ? 'rgba(52,211,153,0.08)' : saveStatus === 'error' ? 'rgba(248,113,113,0.08)' : 'rgba(255,255,255,0.03)'
+            el.style.borderColor = saveStatus === 'saved' ? 'rgba(52,211,153,0.2)' : saveStatus === 'error' ? 'rgba(248,113,113,0.2)' : 'rgba(255,255,255,0.06)'
+            el.style.color = saveStatus === 'saved' ? '#34d399' : saveStatus === 'error' ? '#f87171' : 'rgba(255,255,255,0.4)'
           }}
         >
-          {saveStatus === 'saving' ? 'Saving…' : saveStatus === 'saved' ? '✓ Saved' : saveStatus === 'error' ? '✕ Failed' : 'Save'}
+          {saveStatus === 'saving' ? 'Saving…' : saveStatus === 'saved' ? 'Saved' : saveStatus === 'error' ? 'Error' : 'Save'}
         </button>
 
         {/* History button */}
         <button
+          onClick={onHistoryClick}
           style={{
             fontSize: '12px',
             fontWeight: 500,
-            color: 'rgba(255,255,255,0.45)',
+            color: 'rgba(255,255,255,0.4)',
             background: 'rgba(255,255,255,0.03)',
             border: '1px solid rgba(255,255,255,0.06)',
             cursor: 'pointer',
             padding: '5px 12px',
-            borderRadius: '6px',
+            borderRadius: '8px',
             transition: 'all 0.15s ease',
           }}
           onMouseEnter={(e) => {
             const el = e.currentTarget as HTMLElement
-            el.style.background = 'rgba(255,255,255,0.08)'
+            el.style.background = 'rgba(255,255,255,0.06)'
             el.style.borderColor = 'rgba(255,255,255,0.12)'
-            el.style.color = 'rgba(255,255,255,0.9)'
+            el.style.color = 'rgba(255,255,255,0.8)'
           }}
           onMouseLeave={(e) => {
             const el = e.currentTarget as HTMLElement
             el.style.background = 'rgba(255,255,255,0.03)'
             el.style.borderColor = 'rgba(255,255,255,0.06)'
-            el.style.color = 'rgba(255,255,255,0.45)'
+            el.style.color = 'rgba(255,255,255,0.4)'
           }}
         >
           History
+        </button>
+
+        {/* Log toggle button */}
+        <button
+          onClick={onLogClick}
+          style={{
+            fontSize: '12px',
+            fontWeight: 500,
+            color: logOpen ? '#ffffff' : 'rgba(255,255,255,0.4)',
+            background: logOpen ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.03)',
+            border: '1px solid',
+            borderColor: logOpen ? 'rgba(255,255,255,0.25)' : 'rgba(255,255,255,0.06)',
+            cursor: 'pointer',
+            padding: '5px 12px',
+            borderRadius: '8px',
+            transition: 'all 0.15s ease',
+          }}
+          onMouseEnter={(e) => {
+            const el = e.currentTarget as HTMLElement
+            if (!logOpen) {
+              el.style.background = 'rgba(255,255,255,0.06)'
+              el.style.borderColor = 'rgba(255,255,255,0.12)'
+              el.style.color = 'rgba(255,255,255,0.8)'
+            }
+          }}
+          onMouseLeave={(e) => {
+            const el = e.currentTarget as HTMLElement
+            if (!logOpen) {
+              el.style.background = 'rgba(255,255,255,0.03)'
+              el.style.borderColor = 'rgba(255,255,255,0.06)'
+              el.style.color = 'rgba(255,255,255,0.4)'
+            }
+          }}
+        >
+          Log
+        </button>
+
+        {/* Benchmark button */}
+        <button
+          onClick={onBenchmarkClick}
+          style={{
+            fontSize: '12px',
+            fontWeight: 500,
+            color: 'rgba(255,255,255,0.4)',
+            background: 'rgba(255,255,255,0.03)',
+            border: '1px solid rgba(255,255,255,0.06)',
+            cursor: 'pointer',
+            padding: '5px 12px',
+            borderRadius: '8px',
+            transition: 'all 0.15s ease',
+          }}
+          onMouseEnter={(e) => {
+            const el = e.currentTarget as HTMLElement
+            el.style.background = 'rgba(255,255,255,0.08)'
+            el.style.borderColor = 'rgba(255,255,255,0.2)'
+            el.style.color = '#ffffff'
+          }}
+          onMouseLeave={(e) => {
+            const el = e.currentTarget as HTMLElement
+            el.style.background = 'rgba(255,255,255,0.03)'
+            el.style.borderColor = 'rgba(255,255,255,0.06)'
+            el.style.color = 'rgba(255,255,255,0.4)'
+          }}
+        >
+          Benchmark
         </button>
 
 

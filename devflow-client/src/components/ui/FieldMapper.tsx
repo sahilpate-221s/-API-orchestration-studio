@@ -26,7 +26,7 @@ const controlStyle: React.CSSProperties = {
 }
 
 const focusBorder = (e: React.FocusEvent<HTMLInputElement | HTMLSelectElement>) => {
-  e.currentTarget.style.borderColor = 'rgba(99,102,241,0.55)'
+  e.currentTarget.style.borderColor = 'rgba(255,255,255,0.3)'
 }
 
 const blurBorder = (e: React.FocusEvent<HTMLInputElement | HTMLSelectElement>) => {

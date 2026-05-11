@@ -1,9 +1,15 @@
 import axios from 'axios'
-import { io } from '../index'
+import { Job } from 'bullmq'
+import { v4 as uuidv4 } from 'uuid'
+
+import { io } from '../socket'
 import { IFlowNode, IFlowEdge, FieldMapping } from '../types'
 import { checkRateLimit } from './rateLimiter'
 import { getCachedResult, setCachedResult, hashNode } from './executionCache'
 import { extractValue, resolveTemplate } from '../utils/jsonpath'
+import { WorkflowJobData, JobProgress } from '../types/jobs'
+import Execution, { NodeExecutionResult } from '../models/Execution'
+
 
 function getExecutionOrder(nodes: IFlowNode[], edges: IFlowEdge[]): IFlowNode[] {
   const nodeIds = new Set(nodes.map((node) => node.id))
@@ -37,6 +43,47 @@ function getExecutionOrder(nodes: IFlowNode[], edges: IFlowEdge[]): IFlowNode[] 
   }
 
   return result
+}
+
+// Topological sort returning levels for parallel execution
+function getParallelExecutionLevels(
+  nodes: IFlowNode[],
+  edges: IFlowEdge[]
+): IFlowNode[][] {
+  const inDegree: Record<string, number> = {}
+  const adjacency: Record<string, string[]> = {}
+
+  for (const node of nodes) {
+    inDegree[node.id] = 0
+    adjacency[node.id] = []
+  }
+
+  for (const edge of edges) {
+    adjacency[edge.source].push(edge.target)
+    inDegree[edge.target] = (inDegree[edge.target] ?? 0) + 1
+  }
+
+  const levels: IFlowNode[][] = []
+  let currentLevel = nodes.filter((n) => inDegree[n.id] === 0)
+
+  while (currentLevel.length > 0) {
+    levels.push(currentLevel)
+    const nextLevel: IFlowNode[] = []
+
+    for (const node of currentLevel) {
+      for (const neighborId of adjacency[node.id]) {
+        inDegree[neighborId]--
+        if (inDegree[neighborId] === 0) {
+          const neighbor = nodes.find((n) => n.id === neighborId)
+          if (neighbor) nextLevel.push(neighbor)
+        }
+      }
+    }
+
+    currentLevel = nextLevel
+  }
+
+  return levels
 }
 
 function getIncomingEdges(nodes: IFlowNode[], edges: IFlowEdge[]): Record<string, string[]> {
@@ -113,6 +160,167 @@ function resolveNodeInputs(
   }
 
   return { url, headers: sanitizeHeaders(headers), body }
+}
+
+async function executeNode(
+  node: IFlowNode,
+  results: Record<string, unknown>,
+  workflowId: string,
+  retryConfig: { maxRetries: number; timeout: number }
+): Promise<NodeExecutionResult> {
+  const { method } = node.data
+  const { url, headers, body } = resolveNodeInputs(node, results)
+  const startedAt = new Date()
+  let retryCount = 0
+
+  if (!url) {
+    const result: NodeExecutionResult = {
+      nodeId: node.id,
+      nodeLabel: node.data.label,
+      status: 'error',
+      error: 'URL is empty',
+      executionTime: 0,
+      fromCache: false,
+      retryCount: 0,
+      startedAt,
+      completedAt: new Date(),
+    }
+    io.to(workflowId).emit('node_update', {
+      nodeId: node.id,
+      status: 'error',
+      error: 'URL is empty',
+      executionTime: 0,
+    })
+    return result
+  }
+
+  const hash = hashNode({ url, method, headers, body })
+  const cached = await getCachedResult(hash)
+
+  if (cached) {
+    results[node.id] = cached
+    const result: NodeExecutionResult = {
+      nodeId: node.id,
+      nodeLabel: node.data.label,
+      status: 'success',
+      response: cached,
+      executionTime: 0,
+      fromCache: true,
+      retryCount: 0,
+      startedAt,
+      completedAt: new Date(),
+    }
+    io.to(workflowId).emit('node_update', {
+      nodeId: node.id,
+      status: 'success',
+      response: cached,
+      executionTime: 0,
+      fromCache: true,
+    })
+    return result
+  }
+
+  // Retry loop
+  while (retryCount <= retryConfig.maxRetries) {
+    io.to(workflowId).emit('node_update', {
+      nodeId: node.id,
+      status: 'running',
+      retryCount,
+    })
+
+    const start = Date.now()
+
+    try {
+      const response = await axios({
+        method: method.toLowerCase(),
+        url,
+        headers,
+        data: body ? JSON.parse(body) : undefined,
+        timeout: retryConfig.timeout,
+      })
+
+      const executionTime = Date.now() - start
+      results[node.id] = response.data
+      await setCachedResult(hash, response.data)
+
+      const result: NodeExecutionResult = {
+        nodeId: node.id,
+        nodeLabel: node.data.label,
+        status: 'success',
+        response: response.data,
+        executionTime,
+        fromCache: false,
+        retryCount,
+        startedAt,
+        completedAt: new Date(),
+      }
+
+      io.to(workflowId).emit('node_update', {
+        nodeId: node.id,
+        status: 'success',
+        response: response.data,
+        executionTime,
+        fromCache: false,
+      })
+
+      return result
+
+    } catch (err: unknown) {
+      const executionTime = Date.now() - start
+      retryCount++
+
+      const message = axios.isAxiosError(err)
+        ? err.response?.data?.message ?? err.message
+        : 'Unknown error'
+
+      if (retryCount > retryConfig.maxRetries) {
+        const result: NodeExecutionResult = {
+          nodeId: node.id,
+          nodeLabel: node.data.label,
+          status: 'error',
+          error: message,
+          executionTime,
+          fromCache: false,
+          retryCount: retryCount - 1,
+          startedAt,
+          completedAt: new Date(),
+        }
+
+        io.to(workflowId).emit('node_update', {
+          nodeId: node.id,
+          status: 'error',
+          error: message,
+          executionTime,
+          retryCount: retryCount - 1,
+        })
+
+        return result
+      }
+
+      // Exponential backoff before retry
+      const delay = Math.pow(2, retryCount) * 1000
+      io.to(workflowId).emit('node_update', {
+        nodeId: node.id,
+        status: 'running',
+        retryCount,
+        retryDelay: delay,
+      })
+      await new Promise((r) => setTimeout(r, delay))
+    }
+  }
+
+  // Should never reach here
+  return {
+    nodeId: node.id,
+    nodeLabel: node.data.label,
+    status: 'error',
+    error: 'Max retries exceeded',
+    executionTime: 0,
+    fromCache: false,
+    retryCount,
+    startedAt,
+    completedAt: new Date(),
+  }
 }
 
 export async function executeWorkflow(
@@ -275,4 +483,63 @@ export async function executeWorkflow(
   }
 
   io.to(workflowId).emit('execution_complete', { workflowId })
+}
+
+export async function executeWorkflowJob(job: Job<WorkflowJobData>): Promise<void> {
+  const { workflowId, userId, nodes, edges, executionId } = job.data
+  const startTime = Date.now()
+
+  // Update execution status to running
+  await Execution.findOneAndUpdate(
+    { executionId },
+    { status: 'running', jobId: job.id }
+  )
+
+  io.to(workflowId).emit('execution_start', {
+    workflowId,
+    executionId,
+  })
+
+  const levels = getParallelExecutionLevels(nodes, edges)
+  const results: Record<string, unknown> = {}
+  const allNodeResults: NodeExecutionResult[] = []
+  let overallStatus: 'success' | 'error' = 'success'
+
+  for (const level of levels) {
+    // Run all nodes in this level in PARALLEL
+    const levelResults = await Promise.all(
+      level.map((node) =>
+        executeNode(node, results, workflowId, {
+          maxRetries: 2,
+          timeout: 10000,
+        })
+      )
+    )
+
+    for (const result of levelResults) {
+      allNodeResults.push(result)
+      if (result.status === 'error') overallStatus = 'error'
+    }
+  }
+
+  const totalTime = Date.now() - startTime
+
+  // Save execution results
+  await Execution.findOneAndUpdate(
+    { executionId },
+    {
+      status: overallStatus,
+      nodes: allNodeResults,
+      totalTime,
+      completedAt: new Date(),
+    }
+  )
+
+  io.to(workflowId).emit('execution_complete', {
+    workflowId,
+    executionId,
+    status: overallStatus,
+    totalTime,
+  })
+
 }

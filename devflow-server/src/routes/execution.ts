@@ -1,5 +1,6 @@
 import { Router, Response } from 'express'
 import { authMiddleware, AuthRequest } from '../middleware/auth'
+import { executionRateLimit } from '../middleware/rateLimits'
 import { workflowQueue } from '../config/queue'
 import { getRateLimitStatus } from '../services/rateLimiter'
 import Workflow from '../models/Workflow'
@@ -19,7 +20,7 @@ router.get('/usage', authMiddleware, async (req: AuthRequest, res: Response) => 
 })
 
 // Run workflow — enqueue job
-router.post('/:workflowId/run', authMiddleware, async (req: AuthRequest, res: Response) => {
+router.post('/:workflowId/run', authMiddleware, executionRateLimit, async (req: AuthRequest, res: Response) => {
   try {
     const workflow = await Workflow.findOne({
       _id: req.params.workflowId,
@@ -75,18 +76,35 @@ router.post('/:workflowId/run', authMiddleware, async (req: AuthRequest, res: Re
   }
 })
 
-// Get execution history for a workflow
+// Get execution history for a workflow with pagination
 router.get('/:workflowId/history', authMiddleware, async (req: AuthRequest, res: Response) => {
   try {
+    const limit = parseInt(req.query.limit as string) || 20
+    const skip = parseInt(req.query.skip as string) || 0
+
     const executions = await Execution.find({
       workflowId: req.params.workflowId,
       userId: req.user!.id,
     })
       .sort({ triggeredAt: -1 })
-      .limit(20)
+      .skip(skip)
+      .limit(limit)
       .select('executionId status totalTime triggeredAt completedAt nodes')
 
-    res.json({ executions })
+    const total = await Execution.countDocuments({
+      workflowId: req.params.workflowId,
+      userId: req.user!.id,
+    })
+
+    res.json({ 
+      executions,
+      pagination: {
+        total,
+        limit,
+        skip,
+        hasMore: skip + executions.length < total
+      }
+    })
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err })
   }

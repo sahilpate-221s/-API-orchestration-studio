@@ -1,11 +1,15 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useState, useRef } from 'react'
 import { useFlowStore } from '../store/flowStore'
 import { saveWorkflow, createWorkflow } from '../services/workflowService'
 import { getSocket } from '../services/socketService'
 import api from '../services/api'
+import { v4 as uuidv4 } from 'uuid'
+
 
 export function useExecution() {
   const [remaining, setRemaining] = useState(100)
+  const isRunningRef = useRef(false)
+
 
   const {
     nodes, edges,
@@ -53,6 +57,8 @@ export function useExecution() {
       error?: string
       executionTime?: number
       fromCache?: boolean
+      retryCount?: number
+
     }) => {
       updateNodeData(data.nodeId, {
         status: data.status as any,
@@ -64,18 +70,18 @@ export function useExecution() {
     })
 
     socket.on('execution_start', (data: { remaining?: number }) => {
-      console.log('Execution started')
+      isRunningRef.current = true
       if (data && data.remaining !== undefined) {
         setRemaining(data.remaining)
       }
     })
 
     socket.on('execution_complete', () => {
-      console.log('Execution complete')
+      isRunningRef.current = false
     })
 
     socket.on('execution_error', (data: { message: string; remaining?: number }) => {
-      console.error('Execution blocked:', data.message)
+      isRunningRef.current = false
       if (typeof data.remaining === 'number') {
         setRemaining(data.remaining)
       }
@@ -92,6 +98,8 @@ export function useExecution() {
   }, [updateNodeData])
 
   const runWorkflow = useCallback(async () => {
+    if (isRunningRef.current) return
+
     const socket = getSocket()
 
     // First save the workflow to get an ID
@@ -122,7 +130,13 @@ export function useExecution() {
     }
 
     // Tell backend to start execution
-    await api.post(`/execution/${id}/run`)
+    const idempotencyKey = uuidv4()
+    await api.post(
+      `/execution/${id}/run`,
+      {},
+      { headers: { 'x-idempotency-key': idempotencyKey } }
+    )
+
   }, [nodes, edges, workflowId, workflowName, workspace, updateNodeData, setWorkflowMeta])
 
   const resetWorkflow = useCallback(() => {
