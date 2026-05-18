@@ -57,6 +57,9 @@ export function useExecution() {
       error?: string
       executionTime?: number
       fromCache?: boolean
+      statusCode?: number
+      statusText?: string
+      responseHeaders?: Record<string, string>
       retryCount?: number
 
     }) => {
@@ -66,6 +69,10 @@ export function useExecution() {
         error: data.error,
         executionTime: data.executionTime,
         fromCache: data.fromCache,
+        statusCode: data.statusCode,
+        statusText: data.statusText,
+        responseHeaders: data.responseHeaders,
+        retryCount: data.retryCount,
       })
     })
 

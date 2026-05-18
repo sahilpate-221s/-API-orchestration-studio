@@ -157,7 +157,7 @@ export default function Sidebar() {
   return (
     <div
       style={{
-        width: expanded ? '200px' : '56px',
+        width: expanded ? '180px' : '56px',
         height: '100%',
         background: '#0c0c0c',
         borderRight: '1px solid rgba(255,255,255,0.05)',
