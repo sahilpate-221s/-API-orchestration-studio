@@ -17,6 +17,7 @@ export default function BenchmarkPage({ onClose }: { onClose: () => void }) {
   const [results, setResults] = useState<BenchmarkResult[]>([])
   const [progress, setProgress] = useState(0)
   const [concurrency] = useState(5)
+  const [totalRuns, setTotalRuns] = useState(20)
 
   const runBenchmark = async () => {
     if (nodes.length === 0) return
@@ -34,7 +35,6 @@ export default function BenchmarkPage({ onClose }: { onClose: () => void }) {
         await saveWorkflow(id, workflowName, nodes, edges)
       }
 
-      const totalRuns = 20
       const batchSize = concurrency
       const allResults: BenchmarkResult[] = []
 
@@ -46,7 +46,10 @@ export default function BenchmarkPage({ onClose }: { onClose: () => void }) {
           const start = Date.now()
           try {
             await api.post(`/execution/${id}/run`, {}, {
-              headers: { 'x-idempotency-key': `bench-${Date.now()}-${runNumber}` }
+              headers: { 
+                'x-idempotency-key': `bench-${Date.now()}-${runNumber}`,
+                'x-is-benchmark': 'true'
+              }
             })
             const totalTime = Date.now() - start
             return {
@@ -76,6 +79,14 @@ export default function BenchmarkPage({ onClose }: { onClose: () => void }) {
           await new Promise((r) => setTimeout(r, 500))
         }
       }
+
+      await api.post(`/execution/${id}/benchmark-save`, {
+        totalRuns,
+        concurrency,
+        results: allResults,
+        totalTime: allResults.reduce((a, b) => a + b.totalTime, 0)
+      })
+
     } catch (err) {
       console.error('Benchmark failed:', err)
       alert('Failed to start benchmark. Make sure the workflow is saved.')
@@ -139,9 +150,9 @@ export default function BenchmarkPage({ onClose }: { onClose: () => void }) {
         {/* Header */}
         <div style={{ padding: '24px 32px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div>
-            <h1 style={{ margin: 0, fontSize: '18px', fontWeight: 700, color: '#fff', letterSpacing: '-0.02em' }}>Performance Benchmark</h1>
+            <h1 style={{ margin: 0, fontSize: '18px', fontWeight: 700, color: '#fff', letterSpacing: '-0.02em' }}>Load Test</h1>
             <p style={{ margin: '4px 0 0 0', fontSize: '12px', color: 'rgba(255,255,255,0.3)' }}>
-              Load testing: 20 sequential batches · 5 parallel requests
+              Load testing: {totalRuns} total runs · {concurrency} parallel requests
             </p>
           </div>
           <button
@@ -173,11 +184,15 @@ export default function BenchmarkPage({ onClose }: { onClose: () => void }) {
                <div style={{ width: '48px', height: '48px', borderRadius: '14px', background: 'rgba(255, 255, 255, 0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px', color: '#fff' }}>
                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
                </div>
-               <h3 style={{ fontSize: '16px', fontWeight: 600, color: '#fff', margin: '0 0 8px' }}>Ready to Benchmark?</h3>
-               <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.3)', margin: '0 0 24px' }}>This will execute the workflow 20 times to measure latency and stability.</p>
+               <h3 style={{ fontSize: '16px', fontWeight: 600, color: '#fff', margin: '0 0 8px' }}>Ready to Load Test?</h3>
+               <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.3)', margin: '0 0 16px' }}>This will execute the workflow multiple times to measure latency and stability.</p>
+               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px', marginBottom: '24px' }}>
+                 <label style={{ fontSize: '13px', color: 'rgba(255,255,255,0.6)' }}>Total Runs:</label>
+                 <input type="number" min={1} max={1000} value={totalRuns || ''} onChange={(e) => setTotalRuns(Number(e.target.value))} style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', borderRadius: '8px', padding: '6px 12px', outline: 'none', width: '80px', textAlign: 'center' }} />
+               </div>
                <button
                  onClick={runBenchmark}
-                 disabled={nodes.length === 0}
+                 disabled={nodes.length === 0 || !totalRuns || totalRuns < 1}
                  style={{
                    padding: '12px 28px',
                    borderRadius: '12px',
@@ -186,10 +201,10 @@ export default function BenchmarkPage({ onClose }: { onClose: () => void }) {
                    fontSize: '14px',
                    fontWeight: 700,
                    border: 'none',
-                   cursor: nodes.length === 0 ? 'not-allowed' : 'pointer',
+                   cursor: (nodes.length === 0 || !totalRuns || totalRuns < 1) ? 'not-allowed' : 'pointer',
                    boxShadow: '0 8px 20px rgba(255, 255, 255, 0.12)',
                    transition: 'all 0.2s',
-                   opacity: nodes.length === 0 ? 0.5 : 1,
+                   opacity: (nodes.length === 0 || !totalRuns || totalRuns < 1) ? 0.5 : 1,
                  }}
                >
                  Launch Test
@@ -226,7 +241,7 @@ export default function BenchmarkPage({ onClose }: { onClose: () => void }) {
                 <span style={{ fontSize: '13px', fontWeight: 600, color: '#fff' }}>Execution Timeline</span>
                 {running && (
                   <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)' }}>Processing run {results.length}/20...</span>
+                    <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)' }}>Processing run {results.length}/{totalRuns}...</span>
                     <div style={{ width: '100px', height: '6px', background: 'rgba(255,255,255,0.05)', borderRadius: '10px', overflow: 'hidden' }}>
                       <div style={{ width: `${progress}%`, height: '100%', background: '#fff', transition: 'all 0.3s' }} />
                     </div>
@@ -255,7 +270,7 @@ export default function BenchmarkPage({ onClose }: { onClose: () => void }) {
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0 8px' }}>
                 <span style={{ fontSize: '9px', fontWeight: 800, color: 'rgba(255,255,255,0.15)' }}>RUN #1</span>
-                <span style={{ fontSize: '9px', fontWeight: 800, color: 'rgba(255,255,255,0.15)' }}>RUN #20</span>
+                <span style={{ fontSize: '9px', fontWeight: 800, color: 'rgba(255,255,255,0.15)' }}>RUN #{totalRuns}</span>
               </div>
             </div>
           )}

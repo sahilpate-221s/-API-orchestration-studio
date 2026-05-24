@@ -20,6 +20,7 @@ type FlowStore = {
   setFlow: (nodes: FlowNode[], edges: FlowEdge[]) => void
   exportWorkflow: () => string
   importWorkflow: (json: string) => void
+  mergeTemplate: (nodes: FlowNode[], edges: FlowEdge[]) => void
 }
 
 function wouldCreateCycle(edges: FlowEdge[], source: string, target: string): boolean {
@@ -126,5 +127,62 @@ export const useFlowStore = create<FlowStore>((set, get) => ({
       console.error('Workflow import failed:', err)
       alert('Invalid workflow data')
     }
+  },
+
+  mergeTemplate: (templateNodes: FlowNode[], templateEdges: FlowEdge[]) => {
+    const { nodes: existingNodes, edges: existingEdges } = get()
+
+    // Calculate the bounding box of existing nodes to place template below them
+    let offsetY = 200 // default start if canvas is empty
+    let offsetX = 100
+    if (existingNodes.length > 0) {
+      let maxY = -Infinity
+      let minX = Infinity
+      for (const n of existingNodes) {
+        const bottomY = n.position.y + 120 // approximate node height
+        if (bottomY > maxY) maxY = bottomY
+        if (n.position.x < minX) minX = n.position.x
+      }
+      offsetY = maxY + 80 // 80px gap below existing nodes
+      offsetX = minX
+    }
+
+    // Calculate template's own origin so we can rebase positions
+    let tMinX = Infinity
+    let tMinY = Infinity
+    for (const n of templateNodes) {
+      if (n.position.x < tMinX) tMinX = n.position.x
+      if (n.position.y < tMinY) tMinY = n.position.y
+    }
+
+    const suffix = `-${Date.now()}`
+    const idMap = new Map<string, string>()
+
+    const newNodes: FlowNode[] = templateNodes.map((n) => {
+      const newId = `${n.id}${suffix}`
+      idMap.set(n.id, newId)
+      return {
+        ...n,
+        id: newId,
+        position: {
+          x: (n.position.x - tMinX) + offsetX,
+          y: (n.position.y - tMinY) + offsetY,
+        },
+        data: { ...n.data, status: 'idle', response: undefined, error: undefined, statusCode: undefined, responseHeaders: undefined, executionTime: undefined },
+      }
+    })
+
+    const newEdges: FlowEdge[] = templateEdges.map((e) => ({
+      ...e,
+      id: `${e.id}${suffix}`,
+      source: idMap.get(e.source) ?? e.source,
+      target: idMap.get(e.target) ?? e.target,
+    }))
+
+    set({
+      nodes: [...existingNodes, ...newNodes],
+      edges: [...existingEdges, ...newEdges],
+      selectedNodeId: null,
+    })
   },
 }))

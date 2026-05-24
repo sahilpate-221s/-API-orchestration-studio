@@ -171,13 +171,13 @@ export default function ApiNode({ data, selected }: NodeProps<NodeData>) {
         <div style={{ padding: '5px 14px', background: 'rgba(255,255,255,0.02)', borderTop: '1px solid rgba(255,255,255,0.04)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <div style={{ fontSize: '9px', color: 'rgba(255,255,255,0.4)', fontWeight: 500 }}>
               {fromCache ? (
-                <span style={{ color: '#60a5fa' }}>⚡ cached</span>
+                <div title="cached" style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#f97316', boxShadow: '0 0 6px #f97316', display: 'inline-block' }} />
               ) : (
                 <><span style={{ color: 'rgba(255,255,255,0.6)' }}>{executionTime}</span>ms</>
               )}
             </div>
             {status === 'error' && <span style={{ fontSize: '9px', color: '#f87171', fontWeight: 600 }}>Failed</span>}
-            {status === 'success' && <span style={{ fontSize: '9px', color: '#34d399', fontWeight: 600 }}>✓ Success</span>}
+            {status === 'success' && <span style={{ fontSize: '9px', color: '#34d399', fontWeight: 600 }}>Success</span>}
         </div>
       )}
 

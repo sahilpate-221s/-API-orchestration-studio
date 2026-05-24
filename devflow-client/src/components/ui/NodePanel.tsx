@@ -60,7 +60,8 @@ export default function NodePanel() {
     } else {
       setForm({})
     }
-  }, [selectedNodeId, selectedNode])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedNodeId])
 
   useEffect(() => {
     if (selectedNode?.data.response || selectedNode?.data.error) {

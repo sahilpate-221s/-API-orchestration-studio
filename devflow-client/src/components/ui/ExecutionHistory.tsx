@@ -19,6 +19,7 @@ type Execution = {
   triggeredAt: string
   completedAt?: string
   nodes: NodeResult[]
+  idempotencyKey?: string
 }
 
 type Props = {
@@ -181,7 +182,9 @@ export default function ExecutionHistory({ onClose }: Props) {
                     }}
                   >
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span style={{ fontSize: '13px', fontWeight: 600, color: '#fff' }}>Run #{total - i}</span>
+                      <span style={{ fontSize: '13px', fontWeight: 600, color: '#fff' }}>
+                        {ex.idempotencyKey?.startsWith('benchmark-') ? 'Load Test' : `Run #${total - i}`}
+                      </span>
                       <div style={{ 
                         fontSize: '9px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', 
                         padding: '3px 8px', borderRadius: '4px', background: statusBg[ex.status], color: statusColor[ex.status]
@@ -193,7 +196,16 @@ export default function ExecutionHistory({ onClose }: Props) {
                       <span style={{ fontSize: '11px', color: '#fff' }}>
                         {new Date(ex.triggeredAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                       </span>
-                      <span style={{ fontSize: '11px', color: '#fff', fontFamily: 'monospace' }}>{ex.totalTime}ms</span>
+                      {ex.idempotencyKey?.startsWith('benchmark-') ? (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          <span style={{ fontSize: '10px', color: '#fff', textTransform: 'uppercase', letterSpacing: '0.05em' }}>View Runs</span>
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <polyline points="9 18 15 12 9 6" />
+                          </svg>
+                        </div>
+                      ) : (
+                        <span style={{ fontSize: '11px', color: '#fff', fontFamily: 'monospace' }}>{ex.totalTime}ms</span>
+                      )}
                     </div>
                   </button>
                 ))}
@@ -243,7 +255,9 @@ export default function ExecutionHistory({ onClose }: Props) {
                 <div style={{ padding: '20px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '16px' }}>
                   <div style={{ marginBottom: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                     <div>
-                      <h3 style={{ fontSize: '18px', fontWeight: 700, color: '#fff', margin: 0 }}>Run Summary</h3>
+                      <h3 style={{ fontSize: '18px', fontWeight: 700, color: '#fff', margin: 0 }}>
+                        {selected.idempotencyKey?.startsWith('benchmark-') ? 'Load Test Summary' : 'Run Summary'}
+                      </h3>
                       <p style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)', margin: '4px 0 0 0' }}>{new Date(selected.triggeredAt).toLocaleString()}</p>
                     </div>
                     <div style={{ 

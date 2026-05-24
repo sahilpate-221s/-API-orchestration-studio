@@ -126,3 +126,13 @@ html, body, #root {
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 255, 255, 0.1);
 }
+
+/* Global Select Option Styling */
+select {
+  cursor: pointer;
+}
+
+option {
+  background-color: #141414;
+  color: #ffffff;
+}

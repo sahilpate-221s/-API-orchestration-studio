@@ -6,6 +6,7 @@ import authRoutes from './routes/auth'
 import workflowRoutes from './routes/workflows'
 import executionRoutes from './routes/execution'
 import aiRoutes from './routes/ai'
+import templateRoutes from './routes/templates'
 import { app, httpServer, io } from './socket'
 import './config/redis'
 import { apiRateLimit } from './middleware/rateLimits'
@@ -22,6 +23,7 @@ app.use('/api/auth', authRoutes)
 app.use('/api/workflows', workflowRoutes)
 app.use('/api/execution', executionRoutes)
 app.use('/api/ai', aiRoutes)
+app.use('/api/templates', templateRoutes)
 
 // Health check
 app.get('/health', (_, res) => res.json({ status: 'ok' }))

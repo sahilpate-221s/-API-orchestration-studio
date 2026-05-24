@@ -43,17 +43,20 @@ router.post('/:workflowId/run', authMiddleware, executionRateLimit, async (req: 
     }
 
     const executionId = uuidv4()
+    const isBenchmark = req.headers['x-is-benchmark'] === 'true'
 
     // Save execution record immediately as queued
-    await Execution.create({
-      executionId,
-      workflowId: workflow._id,
-      userId: req.user!.id,
-      status: 'queued',
-      nodes: [],
-      totalTime: 0,
-      idempotencyKey,
-    })
+    if (!isBenchmark) {
+      await Execution.create({
+        executionId,
+        workflowId: workflow._id,
+        userId: req.user!.id,
+        status: 'queued',
+        nodes: [],
+        totalTime: 0,
+        idempotencyKey,
+      })
+    }
 
     // Enqueue the job
     const job = await workflowQueue.add(
@@ -89,7 +92,7 @@ router.get('/:workflowId/history', authMiddleware, async (req: AuthRequest, res:
       .sort({ triggeredAt: -1 })
       .skip(skip)
       .limit(limit)
-      .select('executionId status totalTime triggeredAt completedAt nodes')
+      .select('executionId status totalTime triggeredAt completedAt nodes idempotencyKey')
 
     const total = await Execution.countDocuments({
       workflowId: req.params.workflowId,
@@ -126,6 +129,51 @@ router.get('/detail/:executionId', authMiddleware, async (req: AuthRequest, res:
     res.json({ execution })
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err })
+  }
+})
+
+// Save aggregated benchmark execution
+router.post('/:workflowId/benchmark-save', authMiddleware, async (req: AuthRequest, res: Response) => {
+  try {
+    const { results, totalTime } = req.body;
+    
+    const nodes = results.map((r: any) => ({
+      nodeId: `run-${r.runNumber}`,
+      nodeLabel: `Run #${r.runNumber}`,
+      status: r.status,
+      executionTime: r.totalTime,
+      fromCache: false,
+      retryCount: 0,
+      startedAt: new Date(),
+      completedAt: new Date(),
+      error: r.status === 'error' ? 'Load test run failed' : undefined
+    }));
+
+    const workflow = await Workflow.findOne({
+      _id: req.params.workflowId,
+      userId: req.user!.id,
+    });
+
+    if (!workflow) {
+      res.status(404).json({ message: 'Workflow not found' });
+      return;
+    }
+
+    const executionId = uuidv4();
+    await Execution.create({
+      executionId,
+      workflowId: workflow._id,
+      userId: req.user!.id,
+      status: results.some((r: any) => r.status === 'error') ? 'error' : 'success',
+      nodes,
+      totalTime,
+      idempotencyKey: `benchmark-${executionId}`,
+      completedAt: new Date(),
+    });
+    
+    res.json({ message: 'Benchmark saved' });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err });
   }
 })
 
