@@ -1,6 +1,6 @@
 import 'dotenv/config'
 import cors from 'cors'
-import express from 'express'
+import express, { Request, Response } from 'express'
 import { connectDB } from './config/database'
 import authRoutes from './routes/auth'
 import workflowRoutes from './routes/workflows'
@@ -26,7 +26,9 @@ app.use('/api/ai', aiRoutes)
 app.use('/api/templates', templateRoutes)
 
 // Health check
-app.get('/health', (_, res) => res.json({ status: 'ok' }))
+app.get('/health', (_req: Request, res: Response) => {
+  res.json({ status: 'ok' })
+})
 
 // Socket connection
 io.on('connection', (socket) => {
