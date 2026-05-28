@@ -1,12 +1,12 @@
-import { Queue, Worker, QueueEvents } from 'bullmq'
+import { Queue, QueueEvents } from 'bullmq'
 import IORedis from 'ioredis'
 
-const connection = new IORedis(process.env.REDIS_URL ?? 'redis://localhost:6379', {
-  maxRetriesPerRequest: null,
+const connection = new IORedis(process.env.REDIS_URL!, {
+  maxRetriesPerRequest: null
 })
 
 export const workflowQueue = new Queue('workflow-execution', {
-  connection,
+  connection: connection as any,
   defaultJobOptions: {
     attempts: 3,
     backoff: {
@@ -18,6 +18,8 @@ export const workflowQueue = new Queue('workflow-execution', {
   },
 })
 
-export const workflowQueueEvents = new QueueEvents('workflow-execution', { connection })
+export const workflowQueueEvents = new QueueEvents('workflow-execution', {
+  connection: connection as any
+})
 
 export { connection }

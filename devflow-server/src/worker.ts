@@ -16,7 +16,7 @@ async function startWorker() {
       console.log(`[Worker] Completed job ${job.id}`)
     },
     {
-      connection,
+      connection: connection as any,
       concurrency: 5,
     }
   )
