@@ -26,7 +26,7 @@ app.use('/api/ai', aiRoutes)
 app.use('/api/templates', templateRoutes)
 
 // Health check
-app.get('/health', (_req: Request, res: Response) => {
+app.get('/api/health', (_req: Request, res: Response) => {
   res.json({ status: 'ok' })
 })
 
