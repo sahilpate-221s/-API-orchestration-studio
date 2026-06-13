@@ -18,6 +18,15 @@ export const workflowQueue = new Queue('workflow-execution', {
   },
 })
 
+export const loadTestQueue = new Queue('load-test', {
+  connection: connection as any,
+  defaultJobOptions: {
+    attempts: 1,
+    removeOnComplete: 50,
+    removeOnFail: 50,
+  },
+})
+
 export const workflowQueueEvents = new QueueEvents('workflow-execution', {
   connection: connection as any
 })

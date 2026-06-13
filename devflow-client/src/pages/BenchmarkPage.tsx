@@ -1,343 +1,564 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import api from '../services/api'
+import { getSocket } from '../services/socketService'
 import { useFlowStore } from '../store/flowStore'
-import { saveWorkflow, createWorkflow } from '../services/workflowService'
+import { useAuthStore } from '../store/authStore'
 
-type BenchmarkResult = {
-  runNumber: number
-  totalTime: number
-  nodeCount: number
-  status: 'success' | 'error'
-  avgNodeTime: number
+// ─── Types ────────────────────────────────────────────────────────────────────
+type StatusCodes = {
+  s2xx: number; s3xx: number; s4xx: number; s5xx: number
+  sTimeout: number; sConnErr: number
 }
 
+type LoadTestStats = {
+  loadTestId: string
+  total: number; completed: number; successful: number; failed: number
+  avgLatency: number; minLatency: number; maxLatency: number
+  p50: number; p95: number; p99: number
+  rps: number; active: number; elapsed: number
+  successRate: number; progress: number
+  statusCodes: StatusCodes
+  errors?: Record<string, number>
+}
+
+type RpsDataPoint = { time: number; rps: number }
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+function fmtNum(n: number): string {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`
+  if (n >= 1_000)     return `${(n / 1_000).toFixed(1)}K`
+  return n.toString()
+}
+
+/** Always display latency in seconds */
+function fmtSec(ms: number): string {
+  if (ms <= 0) return '—'
+  return `${(ms / 1000).toFixed(2)}s`
+}
+
+function getVerdict(s: LoadTestStats): {
+  label: string; emoji: string; color: string; bg: string; border: string; desc: string
+} {
+  const { successRate, avgLatency, rps } = s
+  if (successRate >= 99 && avgLatency <= 200 && rps >= 50)
+    return { label: 'Excellent', emoji: '🚀', color: '#34d399', bg: 'rgba(52,211,153,0.08)', border: 'rgba(52,211,153,0.25)', desc: 'API handled all traffic perfectly — zero bottlenecks, ultra-low latency.' }
+  if (successRate >= 95 && avgLatency <= 500)
+    return { label: 'Good', emoji: '✅', color: '#60a5fa', bg: 'rgba(96,165,250,0.08)', border: 'rgba(96,165,250,0.25)', desc: 'API performed well under load. Minor latency increases are acceptable at this scale.' }
+  if (successRate >= 80)
+    return { label: 'Degraded', emoji: '⚠️', color: '#f59e0b', bg: 'rgba(245,158,11,0.08)', border: 'rgba(245,158,11,0.25)', desc: 'Significant degradation detected. Check rate limits, connection pools, and server CPU/memory.' }
+  return { label: 'Poor', emoji: '🔴', color: '#ef4444', bg: 'rgba(239,68,68,0.08)', border: 'rgba(239,68,68,0.25)', desc: 'High failure rate — the API cannot handle this load. Scale horizontally or reduce per-request cost.' }
+}
+
+function LatencyBar({ label, ms, maxMs, color }: { label: string; ms: number; maxMs: number; color: string }) {
+  const pct = maxMs > 0 ? Math.min((ms / maxMs) * 100, 100) : 0
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+      <span style={{ width: '34px', fontSize: '9px', fontWeight: 700, color: 'rgba(255,255,255,0.35)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{label}</span>
+      <div style={{ flex: 1, height: '5px', background: 'rgba(255,255,255,0.06)', borderRadius: '10px', overflow: 'hidden' }}>
+        <div style={{ width: `${pct}%`, height: '100%', background: color, borderRadius: '10px', transition: 'width 0.5s' }} />
+      </div>
+      <span style={{ minWidth: '44px', textAlign: 'right', fontSize: '11px', fontWeight: 700, color, fontVariantNumeric: 'tabular-nums' }}>{fmtSec(ms)}</span>
+    </div>
+  )
+}
+
+function StatCard({ label, value, sub, color = '#fff' }: { label: string; value: string; sub?: string; color?: string }) {
+  return (
+    <div style={{ background: '#0c0c0c', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '12px', padding: '14px 16px' }}>
+      <p style={{ margin: '0 0 5px', fontSize: '9px', fontWeight: 800, color: 'rgba(255,255,255,0.3)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>{label}</p>
+      <p style={{ margin: 0, fontSize: '20px', fontWeight: 800, color, fontVariantNumeric: 'tabular-nums' }}>{value}</p>
+      {sub && <p style={{ margin: '3px 0 0', fontSize: '10px', color: 'rgba(255,255,255,0.25)' }}>{sub}</p>}
+    </div>
+  )
+}
+
+// ─── Component ────────────────────────────────────────────────────────────────
 export default function BenchmarkPage({ onClose }: { onClose: () => void }) {
-  const { nodes, edges, workflowId, workflowName, workspace, setWorkflowMeta } = useFlowStore()
-  const [running, setRunning] = useState(false)
-  const [results, setResults] = useState<BenchmarkResult[]>([])
-  const [progress, setProgress] = useState(0)
-  const [concurrency] = useState(5)
-  const [totalRuns, setTotalRuns] = useState(20)
+  const { nodes, workflowId } = useFlowStore()
+  const { user } = useAuthStore()
 
-  const runBenchmark = async () => {
-    if (nodes.length === 0) return
-    setRunning(true)
-    setResults([])
-    setProgress(0)
+  // Config
+  const [targetUrl, setTargetUrl]       = useState('')
+  const [method, setMethod]             = useState('GET')
+  const [totalUsers, setTotalUsers]     = useState(1000)
+  const [batchSize, setBatchSize]       = useState(100)
+  const [testMode, setTestMode]         = useState<'spike' | 'ramp'>('spike')
+  const [rampSecs, setRampSecs]         = useState(30)
+  const [customHeaders, setCustomHeaders] = useState('')
+  const [body, setBody]                 = useState('')
 
-    let id = workflowId
+  // Runtime state
+  const [phase, setPhase]         = useState<'config' | 'running' | 'complete'>('config')
+  const [loadTestId, setLoadTestId] = useState<string | null>(null)
+  const [stats, setStats]         = useState<LoadTestStats | null>(null)
+  const [finalStats, setFinalStats] = useState<LoadTestStats | null>(null)
+  const [rpsHistory, setRpsHistory] = useState<RpsDataPoint[]>([])
+  const [errors, setErrors]       = useState<Record<string, number>>({})
+  const [saved, setSaved]         = useState(false)
+  const saveAttempted             = useRef(false)
+
+  // Pre-fill URL from canvas node
+  useEffect(() => {
+    if (nodes.length > 0 && nodes[0].data.url) {
+      setTargetUrl(nodes[0].data.url)
+      setMethod(nodes[0].data.method)
+    }
+  }, [nodes])
+
+  // Socket listener
+  useEffect(() => {
+    if (!user) return
+    const socket = getSocket()
+    const userId = user.id || (user as any)._id
+    socket.emit('join_loadtest', userId)
+
+    socket.on('loadtest_update', (data: LoadTestStats) => {
+      setStats(data)
+      setRpsHistory((prev) => [...prev, { time: Date.now(), rps: data.rps }].slice(-80))
+    })
+
+    socket.on('loadtest_complete', (data: LoadTestStats & { errors: Record<string, number> }) => {
+      setStats(data)
+      setFinalStats(data)
+      setErrors(data.errors ?? {})
+      setPhase('complete')
+    })
+
+    return () => {
+      socket.off('loadtest_update')
+      socket.off('loadtest_complete')
+    }
+  }, [user])
+
+  // Auto-save to history when complete
+  useEffect(() => {
+    if (phase !== 'complete' || !finalStats || saveAttempted.current) return
+    saveAttempted.current = true
+    api.post('/loadtest/save', {
+      workflowId: workflowId ?? undefined,
+      loadTestId: finalStats.loadTestId,
+      targetUrl, method,
+      totalUsers: finalStats.total, completed: finalStats.completed,
+      successful: finalStats.successful, failed: finalStats.failed,
+      successRate: finalStats.successRate, avgLatency: finalStats.avgLatency,
+      p95: finalStats.p95, p99: finalStats.p99,
+      rps: finalStats.rps, elapsed: finalStats.elapsed, errors,
+    }).then(() => setSaved(true)).catch(() => {})
+  }, [phase, finalStats])
+
+  const startLoadTest = async () => {
+    if (!targetUrl) return
+    setPhase('running'); setStats(null); setFinalStats(null)
+    setRpsHistory([]); setErrors({}); setSaved(false)
+    saveAttempted.current = false
+
+    let parsedHeaders: Record<string, string> = {}
+    try { if (customHeaders.trim()) parsedHeaders = JSON.parse(customHeaders) }
+    catch { alert('Invalid headers JSON'); setPhase('config'); return }
+
     try {
-      if (!id) {
-        const wf = await createWorkflow(workflowName, workspace, nodes, edges)
-        id = wf._id
-        setWorkflowMeta(wf._id, wf.name, wf.workspace)
-      } else {
-        await saveWorkflow(id, workflowName, nodes, edges)
-      }
-
-      const batchSize = concurrency
-      const allResults: BenchmarkResult[] = []
-
-      for (let batch = 0; batch < totalRuns / batchSize; batch++) {
-        const batchPromises = Array.from({ length: batchSize }, async (_, i) => {
-          const runNumber = batch * batchSize + i + 1
-          if (runNumber > totalRuns) return null
-          
-          const start = Date.now()
-          try {
-            await api.post(`/execution/${id}/run`, {}, {
-              headers: { 
-                'x-idempotency-key': `bench-${Date.now()}-${runNumber}`,
-                'x-is-benchmark': 'true'
-              }
-            })
-            const totalTime = Date.now() - start
-            return {
-              runNumber,
-              totalTime,
-              nodeCount: nodes.length,
-              status: 'success' as const,
-              avgNodeTime: Math.round(totalTime / Math.max(nodes.length, 1)),
-            }
-          } catch (err) {
-            return {
-              runNumber,
-              totalTime: Date.now() - start,
-              nodeCount: nodes.length,
-              status: 'error' as const,
-              avgNodeTime: 0,
-            }
-          }
-        })
-
-        const batchResults = (await Promise.all(batchPromises)).filter(Boolean) as BenchmarkResult[]
-        allResults.push(...batchResults)
-        setResults([...allResults])
-        setProgress(Math.round((allResults.length / totalRuns) * 100))
-
-        if (batch < totalRuns / batchSize - 1) {
-          await new Promise((r) => setTimeout(r, 500))
-        }
-      }
-
-      await api.post(`/execution/${id}/benchmark-save`, {
-        totalRuns,
-        concurrency,
-        results: allResults,
-        totalTime: allResults.reduce((a, b) => a + b.totalTime, 0)
+      const res = await api.post('/loadtest/start', {
+        workflowId: workflowId ?? undefined,
+        targetUrl, method, headers: parsedHeaders,
+        body: body.trim() || undefined,
+        totalUsers,
+        rampUpSeconds: testMode === 'spike' ? 0 : rampSecs,
+        batchSize,
       })
-
-    } catch (err) {
-      console.error('Benchmark failed:', err)
-      alert('Failed to start benchmark. Make sure the workflow is saved.')
-    } finally {
-      setRunning(false)
+      setLoadTestId(res.data.loadTestId)
+    } catch {
+      alert('Failed to start load test')
+      setPhase('config')
     }
   }
 
-  const avgTime = results.length
-    ? Math.round(results.reduce((a, b) => a + b.totalTime, 0) / results.length)
-    : 0
+  const stopLoadTest = async () => {
+    if (!loadTestId) return
+    await api.post(`/loadtest/stop/${loadTestId}`).catch(() => {})
+    setPhase('complete')
+  }
 
-  const successRate = results.length
-    ? Math.round((results.filter((r) => r.status === 'success').length / results.length) * 100)
-    : 0
+  const reset = () => {
+    setPhase('config'); setStats(null); setFinalStats(null)
+    setRpsHistory([]); setErrors({}); setSaved(false)
+    saveAttempted.current = false
+  }
 
-  const maxTime = results.length ? Math.max(...results.map((r) => r.totalTime)) : 0
-  const minTime = results.length ? Math.min(...results.map((r) => r.totalTime)) : 0
+  const maxRps    = rpsHistory.length > 0 ? Math.max(...rpsHistory.map((r) => r.rps), 1) : 1
+  const verdict   = finalStats ? getVerdict(finalStats) : null
+  const displayed = stats
 
   return (
-    <div 
-      style={{
-        position: 'absolute',
-        inset: 0,
-        zIndex: 9999,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: '32px',
-        overflow: 'hidden',
-      }}
-    >
-      {/* Backdrop */}
-      <div 
-        style={{
-          position: 'absolute',
-          inset: 0,
-          background: 'rgba(0, 0, 0, 0.75)',
-          backdropFilter: 'blur(12px)',
-          animation: 'fadeIn 0.3s ease-out',
-        }}
-        onClick={onClose} 
-      />
+    <div style={{ position: 'absolute', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '28px' }}>
+      <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.88)', backdropFilter: 'blur(18px)' }} onClick={phase === 'config' ? onClose : undefined} />
 
-      {/* Modal Container */}
-      <div
-        style={{
-          width: '100%',
-          maxWidth: '900px',
-          maxHeight: '85vh',
-          background: '#0f0f0f',
-          border: '1px solid rgba(255, 255, 255, 0.08)',
-          borderRadius: '24px',
-          boxShadow: '0 50px 100px -20px rgba(0,0,0,0.9), 0 0 0 1px rgba(255,255,255,0.05)',
-          display: 'flex',
-          flexDirection: 'column',
-          position: 'relative',
-          animation: 'modalIn 0.4s cubic-bezier(0.16, 1, 0.3, 1)',
-        }}
-      >
-        {/* Header */}
-        <div style={{ padding: '24px 32px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <div>
-            <h1 style={{ margin: 0, fontSize: '18px', fontWeight: 700, color: '#fff', letterSpacing: '-0.02em' }}>Load Test</h1>
-            <p style={{ margin: '4px 0 0 0', fontSize: '12px', color: 'rgba(255,255,255,0.3)' }}>
-              Load testing: {totalRuns} total runs · {concurrency} parallel requests
-            </p>
+      <div style={{ width: '100%', maxWidth: '1000px', maxHeight: '93vh', background: '#090909', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '22px', boxShadow: '0 60px 120px -20px rgba(0,0,0,0.95)', display: 'flex', flexDirection: 'column', position: 'relative', animation: 'ltIn 0.35s cubic-bezier(0.16,1,0.3,1)' }}>
+
+        {/* ── Header ── */}
+        <div style={{ padding: '16px 22px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <div style={{ width: '32px', height: '32px', borderRadius: '10px', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+            </div>
+            <div>
+              <h1 style={{ margin: 0, fontSize: '14px', fontWeight: 700, color: '#fff' }}>Load Tester</h1>
+              <p style={{ margin: '2px 0 0', fontSize: '11px', color: 'rgba(255,255,255,0.3)' }}>
+                {phase === 'config'   && 'Simulate thousands of concurrent users hitting your API'}
+                {phase === 'running'  && displayed && `${displayed.progress}% · ${fmtNum(displayed.completed)} / ${fmtNum(displayed.total)} requests · ${displayed.elapsed}s elapsed`}
+                {phase === 'running'  && !displayed && 'Launching workers...'}
+                {phase === 'complete' && finalStats && `Completed · ${fmtNum(finalStats.total)} users · ${finalStats.elapsed}s`}
+              </p>
+            </div>
           </div>
-          <button
-            onClick={onClose}
-            style={{
-              padding: '8px',
-              borderRadius: '10px',
-              background: 'rgba(255,255,255,0.03)',
-              border: '1px solid rgba(255,255,255,0.06)',
-              color: 'rgba(255,255,255,0.4)',
-              cursor: 'pointer',
-              transition: 'all 0.2s',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          >
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-            </svg>
-          </button>
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+            {phase === 'running' && (
+              <button onClick={stopLoadTest} style={{ padding: '6px 13px', borderRadius: '8px', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.25)', color: '#ef4444', fontSize: '12px', fontWeight: 600, cursor: 'pointer' }}>Stop</button>
+            )}
+            <button onClick={onClose} style={{ width: '30px', height: '30px', borderRadius: '9px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)', color: 'rgba(255,255,255,0.4)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+          </div>
         </div>
 
-        <div style={{ flex: 1, overflowY: 'auto', padding: '32px', display: 'flex', flexDirection: 'column', gap: '32px' }}>
-          
-          {/* Action Header (if not running) */}
-          {!running && results.length === 0 && (
-            <div style={{ padding: '40px', textAlign: 'center', background: 'rgba(255, 255, 255, 0.02)', border: '1px dashed rgba(255, 255, 255, 0.15)', borderRadius: '20px' }}>
-               <div style={{ width: '48px', height: '48px', borderRadius: '14px', background: 'rgba(255, 255, 255, 0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px', color: '#fff' }}>
-                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
-               </div>
-               <h3 style={{ fontSize: '16px', fontWeight: 600, color: '#fff', margin: '0 0 8px' }}>Ready to Load Test?</h3>
-               <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.3)', margin: '0 0 16px' }}>This will execute the workflow multiple times to measure latency and stability.</p>
-               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px', marginBottom: '24px' }}>
-                 <label style={{ fontSize: '13px', color: 'rgba(255,255,255,0.6)' }}>Total Runs:</label>
-                 <input type="number" min={1} max={1000} value={totalRuns || ''} onChange={(e) => setTotalRuns(Number(e.target.value))} style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', borderRadius: '8px', padding: '6px 12px', outline: 'none', width: '80px', textAlign: 'center' }} />
-               </div>
-               <button
-                 onClick={runBenchmark}
-                 disabled={nodes.length === 0 || !totalRuns || totalRuns < 1}
-                 style={{
-                   padding: '12px 28px',
-                   borderRadius: '12px',
-                   background: '#fff',
-                   color: '#000',
-                   fontSize: '14px',
-                   fontWeight: 700,
-                   border: 'none',
-                   cursor: (nodes.length === 0 || !totalRuns || totalRuns < 1) ? 'not-allowed' : 'pointer',
-                   boxShadow: '0 8px 20px rgba(255, 255, 255, 0.12)',
-                   transition: 'all 0.2s',
-                   opacity: (nodes.length === 0 || !totalRuns || totalRuns < 1) ? 0.5 : 1,
-                 }}
-               >
-                 Launch Test
-               </button>
-            </div>
-          )}
+        {/* ── Body ── */}
+        <div style={{ flex: 1, overflowY: 'auto', padding: '20px 22px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
 
-          {/* Stats Grid */}
-          {results.length > 0 && (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px' }}>
-              {[
-                { label: 'Avg Latency', value: `${avgTime}ms`, color: '#fff', icon: 'M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z' },
-                { label: 'Min Latency', value: `${minTime}ms`, color: '#34d399', icon: 'M13 7h8m0 0v8m0-8l-8 8-4-4-6 6' },
-                { label: 'Max Latency', value: `${maxTime}ms`, color: '#fbbf24', icon: 'M13 17h8m0 0v-8m0 8l-8-8-4 4-6-6' },
-                { label: 'Success Rate', value: `${successRate}%`, color: successRate === 100 ? '#34d399' : '#f87171', icon: 'M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z' },
-              ].map((stat) => (
-                <div key={stat.label} style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '16px', padding: '16px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.3)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
-                      <path d={stat.icon}/>
-                    </svg>
-                    <span style={{ fontSize: '10px', fontWeight: 800, color: 'rgba(255,255,255,0.2)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{stat.label}</span>
-                  </div>
-                  <div style={{ fontSize: '24px', fontWeight: 800, color: stat.color }}>{stat.value}</div>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* Progress / Chart Section */}
-          {(running || results.length > 0) && (
+          {/* ════ CONFIG PHASE ════ */}
+          {phase === 'config' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <span style={{ fontSize: '13px', fontWeight: 600, color: '#fff' }}>Execution Timeline</span>
-                {running && (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)' }}>Processing run {results.length}/{totalRuns}...</span>
-                    <div style={{ width: '100px', height: '6px', background: 'rgba(255,255,255,0.05)', borderRadius: '10px', overflow: 'hidden' }}>
-                      <div style={{ width: `${progress}%`, height: '100%', background: '#fff', transition: 'all 0.3s' }} />
+
+              {/* Test mode selector */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                {(['spike', 'ramp'] as const).map((m) => (
+                  <button
+                    key={m}
+                    onClick={() => setTestMode(m)}
+                    style={{ padding: '14px', borderRadius: '13px', border: `1px solid ${testMode === m ? (m === 'spike' ? 'rgba(239,68,68,0.4)' : 'rgba(99,102,241,0.4)') : 'rgba(255,255,255,0.06)'}`, background: testMode === m ? (m === 'spike' ? 'rgba(239,68,68,0.08)' : 'rgba(99,102,241,0.08)') : 'rgba(255,255,255,0.02)', cursor: 'pointer', textAlign: 'left' }}
+                  >
+                    <p style={{ margin: '0 0 3px', fontSize: '12px', fontWeight: 700, color: testMode === m ? '#fff' : 'rgba(255,255,255,0.5)' }}>
+                      {m === 'spike' ? '⚡ Spike Test' : '📈 Ramp Test'}
+                    </p>
+                    <p style={{ margin: 0, fontSize: '11px', color: 'rgba(255,255,255,0.3)' }}>
+                      {m === 'spike' ? 'All users hit at once — maximum concurrency' : 'Gradually increase load over time'}
+                    </p>
+                  </button>
+                ))}
+              </div>
+
+              {/* URL */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '7px' }}>
+                <label style={{ fontSize: '10px', fontWeight: 700, color: 'rgba(255,255,255,0.35)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Target Endpoint</label>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <select value={method} onChange={(e) => setMethod(e.target.value)} style={{ background: '#141414', border: '1px solid rgba(255,255,255,0.08)', color: '#fff', borderRadius: '10px', padding: '10px 12px', fontSize: '12px', fontWeight: 700, outline: 'none', cursor: 'pointer' }}>
+                    {['GET','POST','PUT','DELETE','PATCH'].map(m => <option key={m} value={m}>{m}</option>)}
+                  </select>
+                  <input value={targetUrl} onChange={(e) => setTargetUrl(e.target.value)} placeholder="https://api.example.com/endpoint" style={{ flex: 1, background: '#141414', border: '1px solid rgba(255,255,255,0.08)', color: '#fff', borderRadius: '10px', padding: '10px 14px', fontSize: '12px', fontFamily: 'monospace', outline: 'none' }} />
+                </div>
+              </div>
+
+              {/* Knobs */}
+              <div style={{ display: 'grid', gridTemplateColumns: testMode === 'ramp' ? 'repeat(3,1fr)' : '1fr 1fr', gap: '10px' }}>
+                {[
+                  { label: 'Total Users', value: totalUsers, set: (v: number) => setTotalUsers(Math.min(v, 1_000_000)), min: 1, max: 1_000_000, hint: 'Concurrent virtual users', color: '#f59e0b' },
+                  { label: 'Batch Size', value: batchSize, set: (v: number) => setBatchSize(Math.min(v, 500)), min: 1, max: 500, hint: 'Requests per worker slot', color: '#34d399' },
+                  ...(testMode === 'ramp' ? [{ label: 'Ramp-up (s)', value: rampSecs, set: setRampSecs, min: 1, max: 300, hint: 'Seconds to reach full load', color: '#818cf8' }] : []),
+                ].map((f) => (
+                  <div key={f.label} style={{ background: '#0f0f0f', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '13px', padding: '14px' }}>
+                    <label style={{ fontSize: '9px', fontWeight: 700, color: 'rgba(255,255,255,0.3)', textTransform: 'uppercase', letterSpacing: '0.06em', display: 'block', marginBottom: '7px' }}>{f.label}</label>
+                    <input type="number" value={f.value} min={f.min} max={f.max} onChange={(e) => f.set(Number(e.target.value))} style={{ width: '100%', background: 'transparent', border: 'none', color: f.color, fontSize: '28px', fontWeight: 800, outline: 'none', padding: 0 }} />
+                    <p style={{ margin: '3px 0 0', fontSize: '10px', color: 'rgba(255,255,255,0.2)' }}>{f.hint}</p>
+                  </div>
+                ))}
+              </div>
+
+              {/* Summary */}
+              <div style={{ padding: '10px 14px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '10px', display: 'flex', gap: '24px', flexWrap: 'wrap' }}>
+                {[
+                  { label: 'Concurrent Batches', value: Math.ceil(totalUsers / batchSize).toLocaleString() },
+                  { label: 'Max Simultaneous Req', value: fmtNum(Math.min(totalUsers, batchSize * 200)) },
+                  { label: 'Mode', value: testMode === 'spike' ? '⚡ All-at-once' : `📈 ${rampSecs}s ramp` },
+                  { label: 'Per Batch', value: `${batchSize} requests` },
+                ].map((item) => (
+                  <div key={item.label}>
+                    <p style={{ margin: 0, fontSize: '9px', color: 'rgba(255,255,255,0.2)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{item.label}</p>
+                    <p style={{ margin: '2px 0 0', fontSize: '13px', fontWeight: 700, color: '#fff' }}>{item.value}</p>
+                  </div>
+                ))}
+              </div>
+
+              {/* Advanced */}
+              <details>
+                <summary style={{ fontSize: '11px', color: 'rgba(255,255,255,0.3)', fontWeight: 600, listStyle: 'none', display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M6 9l6 6 6-6"/></svg>
+                  Custom Headers &amp; Body
+                </summary>
+                <div style={{ marginTop: '10px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <textarea value={customHeaders} onChange={(e) => setCustomHeaders(e.target.value)} placeholder={'{\n  "Authorization": "Bearer token"\n}'} rows={3} style={{ width: '100%', background: '#141414', border: '1px solid rgba(255,255,255,0.08)', color: '#fff', borderRadius: '10px', padding: '10px 14px', fontSize: '11px', fontFamily: 'monospace', outline: 'none', resize: 'vertical', boxSizing: 'border-box' }} />
+                  {['POST','PUT','PATCH'].includes(method) && (
+                    <textarea value={body} onChange={(e) => setBody(e.target.value)} placeholder={'{\n  "key": "value"\n}'} rows={3} style={{ width: '100%', background: '#141414', border: '1px solid rgba(255,255,255,0.08)', color: '#fff', borderRadius: '10px', padding: '10px 14px', fontSize: '11px', fontFamily: 'monospace', outline: 'none', resize: 'vertical', boxSizing: 'border-box' }} />
+                  )}
+                </div>
+              </details>
+
+              <button onClick={startLoadTest} disabled={!targetUrl} style={{ padding: '14px', borderRadius: '13px', background: targetUrl ? 'linear-gradient(135deg,#fff 0%,#e5e5e5 100%)' : 'rgba(255,255,255,0.05)', color: targetUrl ? '#000' : 'rgba(255,255,255,0.2)', fontSize: '14px', fontWeight: 800, border: 'none', cursor: targetUrl ? 'pointer' : 'not-allowed', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', letterSpacing: '-0.01em' }}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+                {testMode === 'spike' ? `⚡ Spike Test — ${fmtNum(totalUsers)} users at once` : `📈 Ramp Test — ${fmtNum(totalUsers)} users over ${rampSecs}s`}
+              </button>
+            </div>
+          )}
+
+          {/* ════ RUNNING — no data yet ════ */}
+          {phase === 'running' && !displayed && (
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '80px 0', gap: '20px' }}>
+              <div style={{ position: 'relative', width: '52px', height: '52px' }}>
+                <div style={{ position: 'absolute', inset: 0, border: '3px solid rgba(255,255,255,0.06)', borderRadius: '50%' }} />
+                <div style={{ position: 'absolute', inset: 0, border: '3px solid transparent', borderTopColor: '#ef4444', borderRadius: '50%', animation: 'ltSpin 0.9s linear infinite' }} />
+              </div>
+              <div style={{ textAlign: 'center' }}>
+                <p style={{ margin: 0, fontSize: '14px', fontWeight: 600, color: '#fff' }}>Firing requests...</p>
+                <p style={{ margin: '6px 0 0', fontSize: '12px', color: 'rgba(255,255,255,0.35)' }}>
+                  {testMode === 'spike' ? `All ${fmtNum(totalUsers)} users hitting simultaneously` : `Ramping up over ${rampSecs}s`}
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* ════ RUNNING — live data ════ */}
+          {phase === 'running' && displayed && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+
+              {/* Status + progress */}
+              <div style={{ padding: '12px 16px', background: 'rgba(239,68,68,0.05)', border: '1px solid rgba(239,68,68,0.18)', borderRadius: '11px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#ef4444', animation: 'ltPulse 1s infinite' }} />
+                  <span style={{ fontSize: '12px', fontWeight: 700, color: '#fff' }}>LIVE</span>
+                  <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.35)' }}>{displayed.elapsed}s · {fmtNum(displayed.active)} active users</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)', fontVariantNumeric: 'tabular-nums' }}>{fmtNum(displayed.completed)} / {fmtNum(displayed.total)}</span>
+                  <div style={{ width: '90px', height: '4px', background: 'rgba(255,255,255,0.08)', borderRadius: '10px', overflow: 'hidden' }}>
+                    <div style={{ width: `${displayed.progress}%`, height: '100%', background: 'linear-gradient(90deg,#ef4444,#f97316)', borderRadius: '10px', transition: 'width 0.6s' }} />
+                  </div>
+                  <span style={{ fontSize: '12px', fontWeight: 800, color: '#fff', minWidth: '30px' }}>{displayed.progress}%</span>
+                </div>
+              </div>
+
+              {/* Top metrics */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: '10px' }}>
+                <StatCard label="Req/sec" value={fmtNum(displayed.rps)} sub="throughput" />
+                <StatCard label="Success Rate" value={`${displayed.successRate}%`} color={displayed.successRate >= 95 ? '#34d399' : displayed.successRate >= 80 ? '#f59e0b' : '#ef4444'} />
+                <StatCard label="Failures" value={fmtNum(displayed.failed)} sub={`of ${fmtNum(displayed.completed)}`} color={displayed.failed === 0 ? '#34d399' : '#f87171'} />
+              </div>
+
+              {/* Latency bars */}
+              <div style={{ background: '#0c0c0c', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '12px', padding: '14px 16px' }}>
+                <p style={{ margin: '0 0 12px', fontSize: '10px', fontWeight: 700, color: 'rgba(255,255,255,0.3)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Latency Distribution</p>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  {(() => {
+                    const maxMs = displayed.maxLatency || displayed.p99 || 1
+                    return [
+                      { label: 'Min',  ms: displayed.minLatency, color: '#34d399' },
+                      { label: 'Avg',  ms: displayed.avgLatency, color: '#60a5fa' },
+                      { label: 'P50',  ms: displayed.p50,        color: '#818cf8' },
+                      { label: 'P95',  ms: displayed.p95,        color: '#f59e0b' },
+                      { label: 'P99',  ms: displayed.p99,        color: '#f87171' },
+                      { label: 'Max',  ms: displayed.maxLatency, color: '#ef4444' },
+                    ].map((r) => <LatencyBar key={r.label} {...r} maxMs={maxMs} />)
+                  })()}
+                </div>
+              </div>
+
+              {/* Status code buckets */}
+              {displayed.statusCodes && (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: '8px' }}>
+                  {[
+                    { label: '2xx OK',      val: displayed.statusCodes.s2xx,     color: '#34d399' },
+                    { label: '3xx Redirect', val: displayed.statusCodes.s3xx,    color: '#60a5fa' },
+                    { label: '4xx Client',   val: displayed.statusCodes.s4xx,    color: '#f59e0b' },
+                    { label: '5xx Server',   val: displayed.statusCodes.s5xx,    color: '#f87171' },
+                    { label: 'Timeout',      val: displayed.statusCodes.sTimeout, color: '#c084fc' },
+                    { label: 'Conn Error',   val: displayed.statusCodes.sConnErr, color: '#ef4444' },
+                  ].map((b) => (
+                    <div key={b.label} style={{ padding: '10px 12px', background: '#0c0c0c', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '10px' }}>
+                      <p style={{ margin: '0 0 4px', fontSize: '9px', fontWeight: 700, color: 'rgba(255,255,255,0.3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{b.label}</p>
+                      <p style={{ margin: 0, fontSize: '16px', fontWeight: 800, color: b.val > 0 ? b.color : 'rgba(255,255,255,0.15)', fontVariantNumeric: 'tabular-nums' }}>{fmtNum(b.val)}</p>
                     </div>
+                  ))}
+                </div>
+              )}
+
+              {/* RPS chart */}
+              {rpsHistory.length > 1 && (
+                <div style={{ background: '#0c0c0c', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '12px', padding: '14px 16px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                    <p style={{ margin: 0, fontSize: '10px', fontWeight: 700, color: 'rgba(255,255,255,0.3)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Requests / Second</p>
+                    <span style={{ fontSize: '11px', fontWeight: 700, color: '#f87171' }}>Peak {fmtNum(maxRps)} rps</span>
+                  </div>
+                  <div style={{ height: '64px', display: 'flex', alignItems: 'flex-end', gap: '2px' }}>
+                    {rpsHistory.map((p, i) => (
+                      <div key={i} style={{ flex: 1, height: `${Math.max((p.rps / maxRps) * 100, 2)}%`, background: `rgba(239,68,68,${0.2 + (i / rpsHistory.length) * 0.6})`, borderRadius: '2px 2px 0 0', transition: 'height 0.3s' }} />
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ════ COMPLETE PHASE ════ */}
+          {phase === 'complete' && finalStats && verdict && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+
+              {/* Verdict hero */}
+              <div style={{ padding: '20px 22px', background: verdict.bg, border: `1px solid ${verdict.border}`, borderRadius: '16px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <span style={{ fontSize: '28px' }}>{verdict.emoji}</span>
+                    <div>
+                      <p style={{ margin: 0, fontSize: '9px', fontWeight: 700, color: 'rgba(255,255,255,0.35)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Performance Verdict</p>
+                      <p style={{ margin: '2px 0 0', fontSize: '24px', fontWeight: 900, color: verdict.color, letterSpacing: '-0.02em' }}>{verdict.label}</p>
+                    </div>
+                  </div>
+                  <div style={{ textAlign: 'right' }}>
+                    <p style={{ margin: 0, fontSize: '9px', color: 'rgba(255,255,255,0.3)', textTransform: 'uppercase' }}>Success Rate</p>
+                    <p style={{ margin: '2px 0 0', fontSize: '34px', fontWeight: 900, color: verdict.color, fontVariantNumeric: 'tabular-nums' }}>{finalStats.successRate}%</p>
+                  </div>
+                </div>
+                <p style={{ margin: 0, fontSize: '12px', color: 'rgba(255,255,255,0.5)', lineHeight: '1.6', borderTop: `1px solid ${verdict.border}`, paddingTop: '10px' }}>{verdict.desc}</p>
+              </div>
+
+              {/* Quick summary bar */}
+              <div style={{ padding: '10px 14px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.35)', fontFamily: 'monospace' }}>
+                  {fmtNum(finalStats.total)} users · {finalStats.elapsed}s · {fmtNum(finalStats.rps)} peak rps · {fmtSec(finalStats.avgLatency)} avg
+                </span>
+                {saved && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '5px', color: '#34d399', fontSize: '11px', fontWeight: 600 }}>
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                    Saved to History
                   </div>
                 )}
               </div>
-              
-              <div style={{ height: '160px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '20px', padding: '24px 24px 12px', display: 'flex', alignItems: 'end', gap: '6px' }}>
-                {results.map((r, i) => {
-                  const height = maxTime > 0 ? (r.totalTime / maxTime) * 100 : 0
-                  return (
-                    <div 
-                      key={i} 
-                      style={{ 
-                        flex: 1, 
-                        height: `${Math.max(height, 5)}%`, 
-                        background: r.status === 'error' ? 'linear-gradient(to top, #ef4444, #f87171)' : 'linear-gradient(to top, rgba(255,255,255,0.1), rgba(255,255,255,0.3))',
-                        borderRadius: '4px 4px 0 0',
-                        opacity: 0.8,
-                        position: 'relative',
-                        transition: 'all 0.4s ease-out',
-                      }}
-                    />
-                  )
-                })}
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0 8px' }}>
-                <span style={{ fontSize: '9px', fontWeight: 800, color: 'rgba(255,255,255,0.15)' }}>RUN #1</span>
-                <span style={{ fontSize: '9px', fontWeight: 800, color: 'rgba(255,255,255,0.15)' }}>RUN #{totalRuns}</span>
-              </div>
-            </div>
-          )}
 
-          {/* Details Table */}
-          {results.length > 0 && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-               <h3 style={{ fontSize: '13px', fontWeight: 600, color: '#fff' }}>Detailed Metrics</h3>
-               <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '16px', overflow: 'hidden' }}>
-                 <div style={{ display: 'grid', gridTemplateColumns: '60px 1fr 1fr 1fr', padding: '12px 20px', background: 'rgba(255,255,255,0.03)', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-                    {['#', 'STATUS', 'LATENCY', 'AVG/NODE'].map((h) => (
-                      <span key={h} style={{ fontSize: '9px', fontWeight: 800, color: 'rgba(255,255,255,0.2)', letterSpacing: '0.05em' }}>{h}</span>
-                    ))}
-                 </div>
-                 <div style={{ maxHeight: '200px', overflowY: 'auto' }}>
-                    {results.slice().reverse().map((r) => (
-                      <div key={r.runNumber} style={{ display: 'grid', gridTemplateColumns: '60px 1fr 1fr 1fr', padding: '10px 20px', borderBottom: '1px solid rgba(255,255,255,0.03)' }}>
-                        <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.3)', fontWeight: 600 }}>{r.runNumber}</span>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                          <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: r.status === 'success' ? '#10b981' : '#ef4444' }} />
-                          <span style={{ fontSize: '11px', color: r.status === 'success' ? '#34d399' : '#f87171', fontWeight: 600 }}>{r.status}</span>
+              {/* Throughput + reliability row */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: '10px' }}>
+                <StatCard label="Peak Req/sec" value={fmtNum(maxRps)} sub="throughput" color="#fff" />
+                <StatCard label="Successful" value={fmtNum(finalStats.successful)} sub={`${finalStats.successRate}% of total`} color="#34d399" />
+                <StatCard label="Failed" value={fmtNum(finalStats.failed)} sub={finalStats.failed === 0 ? 'Zero failures ✓' : 'See breakdown below'} color={finalStats.failed === 0 ? '#34d399' : '#f87171'} />
+              </div>
+
+              {/* Latency analysis */}
+              <div style={{ background: '#0c0c0c', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '13px', padding: '16px' }}>
+                <p style={{ margin: '0 0 14px', fontSize: '10px', fontWeight: 700, color: 'rgba(255,255,255,0.3)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Latency Analysis</p>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '9px' }}>
+                  {(() => {
+                    const maxMs = finalStats.maxLatency || finalStats.p99 || 1
+                    return [
+                      { label: 'Min',  ms: finalStats.minLatency, color: '#34d399' },
+                      { label: 'Avg',  ms: finalStats.avgLatency, color: '#60a5fa' },
+                      { label: 'P50',  ms: finalStats.p50,        color: '#818cf8' },
+                      { label: 'P95',  ms: finalStats.p95,        color: '#f59e0b' },
+                      { label: 'P99',  ms: finalStats.p99,        color: '#f87171' },
+                      { label: 'Max',  ms: finalStats.maxLatency, color: '#ef4444' },
+                    ].map((r) => <LatencyBar key={r.label} {...r} maxMs={maxMs} />)
+                  })()}
+                </div>
+                <p style={{ margin: '14px 0 0', fontSize: '10px', color: 'rgba(255,255,255,0.25)', fontFamily: 'monospace' }}>
+                  Spread: {fmtSec(finalStats.minLatency)} – {fmtSec(finalStats.maxLatency)} · P99–P50 gap: {fmtSec(finalStats.p99 - finalStats.p50)} (tail latency indicator)
+                </p>
+              </div>
+
+              {/* Status code breakdown */}
+              {finalStats.statusCodes && (
+                <div style={{ background: '#0c0c0c', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '13px', padding: '16px' }}>
+                  <p style={{ margin: '0 0 12px', fontSize: '10px', fontWeight: 700, color: 'rgba(255,255,255,0.3)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>HTTP Response Breakdown</p>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: '8px' }}>
+                    {[
+                      { label: '2xx Success',   val: finalStats.statusCodes.s2xx,      color: '#34d399', pct: finalStats.completed },
+                      { label: '3xx Redirect',  val: finalStats.statusCodes.s3xx,      color: '#60a5fa', pct: finalStats.completed },
+                      { label: '4xx Client Err',val: finalStats.statusCodes.s4xx,      color: '#f59e0b', pct: finalStats.completed },
+                      { label: '5xx Server Err',val: finalStats.statusCodes.s5xx,      color: '#f87171', pct: finalStats.completed },
+                      { label: 'Timeout (30s)', val: finalStats.statusCodes.sTimeout,  color: '#c084fc', pct: finalStats.completed },
+                      { label: 'Conn Error',    val: finalStats.statusCodes.sConnErr,  color: '#ef4444', pct: finalStats.completed },
+                    ].map((b) => {
+                      const pctVal = b.pct > 0 ? Math.round((b.val / b.pct) * 100) : 0
+                      return (
+                        <div key={b.label} style={{ padding: '10px 12px', background: b.val > 0 ? 'rgba(255,255,255,0.02)' : 'transparent', border: `1px solid ${b.val > 0 ? 'rgba(255,255,255,0.07)' : 'rgba(255,255,255,0.03)'}`, borderRadius: '10px' }}>
+                          <p style={{ margin: '0 0 3px', fontSize: '9px', fontWeight: 700, color: 'rgba(255,255,255,0.25)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{b.label}</p>
+                          <p style={{ margin: 0, fontSize: '18px', fontWeight: 800, color: b.val > 0 ? b.color : 'rgba(255,255,255,0.1)', fontVariantNumeric: 'tabular-nums' }}>{fmtNum(b.val)}</p>
+                          {b.val > 0 && <p style={{ margin: '2px 0 0', fontSize: '10px', color: 'rgba(255,255,255,0.25)' }}>{pctVal}% of requests</p>}
                         </div>
-                        <span style={{ fontSize: '11px', color: '#fff', fontWeight: 600 }}>{r.totalTime}ms</span>
-                        <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)' }}>{r.avgNodeTime}ms</span>
-                      </div>
-                    ))}
-                 </div>
-               </div>
-            </div>
-          )}
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
 
-          {/* Action Footer (if results exist but not running) */}
-          {!running && results.length > 0 && (
-            <div style={{ display: 'flex', justifyContent: 'center' }}>
-               <button
-                 onClick={runBenchmark}
-                 style={{
-                   padding: '10px 24px',
-                   borderRadius: '10px',
-                   background: 'rgba(255,255,255,0.05)',
-                   border: '1px solid rgba(255,255,255,0.1)',
-                   color: '#fff',
-                   fontSize: '13px',
-                   fontWeight: 600,
-                   cursor: 'pointer',
-                   transition: 'all 0.2s',
-                   display: 'flex',
-                   alignItems: 'center',
-                   gap: '8px',
-                 }}
-               >
-                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
-                 Run New Test
-               </button>
+              {/* Error type breakdown */}
+              {Object.keys(errors).length > 0 && (
+                <div style={{ padding: '14px 16px', background: 'rgba(248,113,113,0.04)', border: '1px solid rgba(248,113,113,0.12)', borderRadius: '12px' }}>
+                  <p style={{ margin: '0 0 10px', fontSize: '10px', fontWeight: 700, color: 'rgba(255,255,255,0.3)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Error Type Breakdown</p>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '7px' }}>
+                    {Object.entries(errors).sort((a, b) => b[1] - a[1]).map(([type, count]) => {
+                      const pct = finalStats.failed > 0 ? Math.round((count / finalStats.failed) * 100) : 0
+                      return (
+                        <div key={type} style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                          <span style={{ flex: 1, fontSize: '11px', color: 'rgba(255,255,255,0.5)', fontFamily: 'monospace' }}>{type}</span>
+                          <div style={{ width: `${Math.min(pct * 1.2, 100)}px`, height: '3px', background: '#ef4444', borderRadius: '10px', opacity: 0.5 }} />
+                          <span style={{ minWidth: '32px', fontSize: '11px', fontWeight: 700, color: '#f87171', textAlign: 'right' }}>{count.toLocaleString()}</span>
+                          <span style={{ minWidth: '30px', fontSize: '10px', color: 'rgba(255,255,255,0.3)', textAlign: 'right' }}>{pct}%</span>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* RPS chart */}
+              {rpsHistory.length > 1 && (
+                <div style={{ background: '#0c0c0c', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '12px', padding: '14px 16px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                    <p style={{ margin: 0, fontSize: '10px', fontWeight: 700, color: 'rgba(255,255,255,0.3)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Req/sec Over Time</p>
+                    <span style={{ fontSize: '11px', fontWeight: 700, color: '#60a5fa' }}>Peak {fmtNum(maxRps)} rps</span>
+                  </div>
+                  <div style={{ height: '60px', display: 'flex', alignItems: 'flex-end', gap: '2px' }}>
+                    {rpsHistory.map((p, i) => <div key={i} style={{ flex: 1, height: `${Math.max((p.rps / maxRps) * 100, 2)}%`, background: 'rgba(96,165,250,0.45)', borderRadius: '2px 2px 0 0' }} />)}
+                  </div>
+                </div>
+              )}
+
+              {/* Recommendations */}
+              <div style={{ padding: '15px 16px', background: 'rgba(99,102,241,0.05)', border: '1px solid rgba(99,102,241,0.15)', borderRadius: '13px' }}>
+                <p style={{ margin: '0 0 10px', fontSize: '10px', fontWeight: 700, color: '#818cf8', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Developer Analysis</p>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '7px' }}>
+                  {[
+                    finalStats.avgLatency > 1000  ? `🔴 Avg latency ${fmtSec(finalStats.avgLatency)} — responses are critically slow. Profile DB queries and reduce synchronous I/O.` : null,
+                    finalStats.avgLatency > 500   ? `⚠️ Avg latency ${fmtSec(finalStats.avgLatency)} — consider response caching (Redis) or CDN for static responses.` : null,
+                    finalStats.avgLatency <= 200  ? `✅ Avg latency ${fmtSec(finalStats.avgLatency)} — excellent response time under load.` : null,
+                    finalStats.p99 - finalStats.p50 > 2000 ? `⚠️ High tail latency gap (${fmtSec(finalStats.p99 - finalStats.p50)}) — some requests are severely affected. Check for lock contention or GC pauses.` : null,
+                    finalStats.statusCodes?.s5xx > 0 ? `🔴 ${fmtNum(finalStats.statusCodes.s5xx)} server errors (5xx) — your backend is throwing exceptions under load. Check error logs and connection pool limits.` : null,
+                    finalStats.statusCodes?.s4xx > 0 ? `⚠️ ${fmtNum(finalStats.statusCodes.s4xx)} client errors (4xx) — check for rate limiting (429) or auth issues at scale.` : null,
+                    finalStats.statusCodes?.sTimeout > 0 ? `🔴 ${fmtNum(finalStats.statusCodes.sTimeout)} timeouts — server is overwhelmed, requests taking >30s. Scale horizontally or add a load balancer.` : null,
+                    finalStats.successRate >= 99  ? `✅ ${finalStats.successRate}% success rate — API is production-ready for this traffic level.` : null,
+                    `ℹ️ To scale to 1M users: deploy ${Math.ceil(1_000_000 / 50_000)} worker replicas — all share the same BullMQ Redis queue for zero-config horizontal scaling.`,
+                  ].filter(Boolean).map((tip, i) => (
+                    <p key={i} style={{ margin: 0, fontSize: '11px', color: 'rgba(255,255,255,0.5)', lineHeight: '1.55' }}>{tip}</p>
+                  ))}
+                </div>
+              </div>
+
+              <button onClick={reset} style={{ padding: '12px', borderRadius: '12px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.09)', color: '#fff', fontSize: '13px', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+                Run Another Test
+              </button>
             </div>
           )}
         </div>
       </div>
+
       <style>{`
-        @keyframes fadeIn {
-          from { opacity: 0; }
-          to { opacity: 1; }
-        }
-        @keyframes modalIn {
-          from { opacity: 0; transform: scale(0.95) translateY(10px); }
-          to { opacity: 1; transform: scale(1) translateY(0); }
-        }
+        @keyframes ltIn { from { opacity:0; transform:scale(0.96) translateY(12px); } to { opacity:1; transform:scale(1) translateY(0); } }
+        @keyframes ltPulse { 0%,100% { opacity:1; } 50% { opacity:0.3; } }
+        @keyframes ltSpin { from { transform:rotate(0deg); } to { transform:rotate(360deg); } }
       `}</style>
     </div>
   )

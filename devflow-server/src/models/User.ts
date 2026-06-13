@@ -27,6 +27,7 @@ UserSchema.methods.comparePassword = async function (candidate: string): Promise
 
 // Never return password in JSON responses
 UserSchema.set('toJSON', {
+  virtuals: true,
   transform: (_, ret) => {
     delete (ret as any).password
     return ret

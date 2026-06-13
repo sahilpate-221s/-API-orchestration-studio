@@ -92,7 +92,7 @@ router.get('/:workflowId/history', authMiddleware, async (req: AuthRequest, res:
       .sort({ triggeredAt: -1 })
       .skip(skip)
       .limit(limit)
-      .select('executionId status totalTime triggeredAt completedAt nodes idempotencyKey')
+      .select('executionId status totalTime triggeredAt completedAt nodes idempotencyKey loadTestMeta')
 
     const total = await Execution.countDocuments({
       workflowId: req.params.workflowId,

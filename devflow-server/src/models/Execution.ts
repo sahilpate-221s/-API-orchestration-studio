@@ -25,6 +25,7 @@ export interface IExecution extends Document {
   error?: string
   idempotencyKey: string
   jobId?: string
+  loadTestMeta?: Record<string, unknown>
 }
 
 const NodeResultSchema = new Schema<NodeExecutionResult>({
@@ -56,6 +57,7 @@ const ExecutionSchema = new Schema<IExecution>({
   error: String,
   idempotencyKey: { type: String, required: true },
   jobId: String,
+  loadTestMeta: { type: Schema.Types.Mixed, default: null },
 }, { timestamps: true })
 
 ExecutionSchema.index({ workflowId: 1, triggeredAt: -1 })

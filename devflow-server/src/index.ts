@@ -6,6 +6,7 @@ import authRoutes from './routes/auth'
 import workflowRoutes from './routes/workflows'
 import executionRoutes from './routes/execution'
 import aiRoutes from './routes/ai'
+import loadTestRoutes from './routes/loadtest'
 import templateRoutes from './routes/templates'
 import { app, httpServer, io } from './socket'
 import './config/redis'
@@ -24,6 +25,7 @@ app.use('/api/workflows', workflowRoutes)
 app.use('/api/execution', executionRoutes)
 app.use('/api/ai', aiRoutes)
 app.use('/api/templates', templateRoutes)
+app.use('/api/loadtest', loadTestRoutes)
 
 // Health check
 app.get('/api/health', (_req: Request, res: Response) => {
@@ -43,12 +45,29 @@ io.on('connection', (socket) => {
     socket.leave(workflowId)
   })
 
+   // New — load test room
+  socket.on('join_loadtest', (userId: string) => {
+    socket.join(`loadtest:${userId}`)
+    console.log(`Socket ${socket.id} joined loadtest room for user ${userId}`)
+  })
+  
   socket.on('disconnect', () => {
     console.log('Client disconnected:', socket.id)
   })
 })
 
+import { startWorker } from './worker'
+
 // Start
 connectDB().then(() => {
-  httpServer.listen(PORT, () => console.log(`Server running on port ${PORT}`))
+  httpServer.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`)
+    
+    // In production deployments (e.g. Render, Heroku) we often only have one web process.
+    // Start the worker in the same process unless explicitly disabled.
+    if (process.env.START_WORKER !== 'false') {
+      console.log('Starting internal worker process...')
+      startWorker().catch(console.error)
+    }
+  })
 })
