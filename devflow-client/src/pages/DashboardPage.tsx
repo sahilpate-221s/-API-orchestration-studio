@@ -248,10 +248,16 @@ const CSS = `
 .db-page {
   max-width: 1320px;
   margin: 0 auto;
-  padding: 56px 24px 80px;
+  padding: 48px 36px 80px;
   animation: fadeUp 0.4s ease;
   position: relative;
   z-index: 5;
+}
+
+@media (min-width: 768px) {
+  .db-page {
+    padding: 56px 64px 80px;
+  }
 }
 
 .db-eyebrow {

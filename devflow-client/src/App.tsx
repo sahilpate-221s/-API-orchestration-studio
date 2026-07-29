@@ -20,7 +20,6 @@ import ContactPage from "./pages/ContactPage";
 import PricingPage from "./pages/PricingPage";
 import ExecutionHistory from "./components/ui/ExecutionHistory";
 import ExecutionLog from "./components/ui/ExecutionLog";
-import CommandPalette from "./components/ui/CommandPalette";
 import BenchmarkPage from "./pages/BenchmarkPage";
 import { useFlowStore } from "./store/flowStore";
 import { useExecution } from "./hooks/useExecution";
@@ -42,12 +41,6 @@ function CanvasPage() {
   // Global Keyboard Shortcuts
   useEffect(() => {
     const handleGlobalKeyDown = (e: KeyboardEvent) => {
-      // Open Command Palette: Ctrl + K
-      if (e.ctrlKey && e.key.toLowerCase() === "k") {
-        e.preventDefault();
-        setShowPalette((v) => !v);
-      }
-
       // Run Workflow: Ctrl + R
       if (e.ctrlKey && e.key.toLowerCase() === "r") {
         e.preventDefault();
@@ -76,23 +69,12 @@ function CanvasPage() {
     window.addEventListener("keydown", handleGlobalKeyDown);
     return () => window.removeEventListener("keydown", handleGlobalKeyDown);
   }, [runWorkflow, resetWorkflow]);
+
   const { isAuth } = useAuthStore();
   const [showHistory, setShowHistory] = useState(false);
   const [showLog, setShowLog] = useState(false);
-  const [showPalette, setShowPalette] = useState(false);
   const [showBenchmark, setShowBenchmark] = useState(false);
   const [loading, setLoading] = useState(false);
-
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
-        e.preventDefault();
-        setShowPalette((v) => !v);
-      }
-    };
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
-  }, []);
 
   // If not auth, redirect to login
   useEffect(() => {
@@ -101,23 +83,22 @@ function CanvasPage() {
 
   // Fetch workflow data if missing from store but present in URL
   useEffect(() => {
-    if (isAuth && workflowId && !storedId) {
-      setLoading(true);
-      api
-        .get(`/workflows/${workflowId}`)
-        .then((r) => {
-          const wf = r.data.workflow;
-          if (wf) {
-            setWorkflowMeta(wf._id, wf.name, wf.workspace);
-            setFlow(wf.nodes || [], wf.edges || []);
-          }
-        })
-        .catch(() => {
-          navigate("/dashboard", { replace: true });
-        })
-        .finally(() => setLoading(false));
-    }
-  }, [isAuth, workflowId, storedId]);
+    if (!workflowId) return;
+    if (workflowId === storedId) return;
+
+    setLoading(true);
+    api
+      .get(`/workflows/${workflowId}`)
+      .then((r) => {
+        const wf = r.data.workflow;
+        setWorkflowMeta(wf._id, wf.name, wf.workspace);
+        setFlow(wf.nodes ?? [], wf.edges ?? []);
+      })
+      .catch((err) => {
+        console.error("Failed to load workflow", err);
+      })
+      .finally(() => setLoading(false));
+  }, [workflowId, storedId, setWorkflowMeta, setFlow]);
 
   return (
     <div className="fixed inset-0 w-screen h-screen flex flex-col overflow-hidden bg-[#0B0C0E] z-10">
@@ -126,7 +107,6 @@ function CanvasPage() {
         onHistoryClick={() => setShowHistory(true)}
         onLogClick={() => setShowLog((v) => !v)}
         logOpen={showLog}
-        onPaletteClick={() => setShowPalette(true)}
         onBenchmarkClick={() => setShowBenchmark(true)}
       />
       {loading ? (
@@ -146,19 +126,6 @@ function CanvasPage() {
           {selectedNodeId && <NodePanel />}
           {showHistory && (
             <ExecutionHistory onClose={() => setShowHistory(false)} />
-          )}
-          {showPalette && (
-            <CommandPalette
-              onClose={() => setShowPalette(false)}
-              onHistoryClick={() => {
-                setShowHistory(true);
-                setShowPalette(false);
-              }}
-              onLogClick={() => {
-                setShowLog((v) => !v);
-                setShowPalette(false);
-              }}
-            />
           )}
           {showBenchmark && (
             <BenchmarkPage onClose={() => setShowBenchmark(false)} />

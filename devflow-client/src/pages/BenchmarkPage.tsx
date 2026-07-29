@@ -512,16 +512,18 @@ export default function BenchmarkPage({ onClose }: { onClose: () => void }) {
       display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16
     }}>
       {/* DevFlow Ambient Glass Backdrop */}
-      <div style={{ position: 'absolute', inset: 0, background: 'rgba(11, 12, 14, 0.86)', backdropFilter: 'blur(20px) saturate(180%)' }}
+      <div style={{ position: 'absolute', inset: 0, background: 'rgba(11, 12, 14, 0.45)', backdropFilter: 'blur(12px) saturate(180%)', WebkitBackdropFilter: 'blur(12px) saturate(180%)' }}
         onClick={phase === 'config' ? onClose : undefined} />
 
       {/* Fusion Window Container */}
       <div style={{
         position: 'relative', width: '100%', maxWidth: 1020, maxHeight: '94vh',
-        background: C.bg,
-        border: `1px solid ${C.borderSubtle}`,
+        background: 'rgba(11, 12, 14, 0.78)',
+        backdropFilter: 'blur(24px) saturate(180%)',
+        WebkitBackdropFilter: 'blur(24px) saturate(180%)',
+        border: '1px solid rgba(255, 255, 255, 0.12)',
         borderRadius: 20, overflow: 'hidden', display: 'flex', flexDirection: 'column',
-        boxShadow: '0 32px 90px rgba(0, 0, 0, 0.9), 0 0 70px rgba(62, 207, 142, 0.07), inset 0 1px 0 rgba(255, 255, 255, 0.1)',
+        boxShadow: '0 32px 90px rgba(0, 0, 0, 0.85), 0 0 70px rgba(62, 207, 142, 0.07), inset 0 1px 0 rgba(255, 255, 255, 0.1)',
         animation: 'ltOpen 0.28s cubic-bezier(0.16, 1, 0.3, 1)'
       }}>
 

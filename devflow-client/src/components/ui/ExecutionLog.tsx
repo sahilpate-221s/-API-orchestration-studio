@@ -107,7 +107,14 @@ export default function ExecutionLog({ isOpen, onClose }: Props) {
   if (!isOpen) return null
 
   return (
-    <div className="absolute bottom-5 right-5 w-[420px] max-h-[380px] h-[360px] bg-[#0E0F12]/95 backdrop-blur-xl border border-white/10 rounded-2xl flex flex-col z-50 shadow-[0_24px_60px_rgba(0,0,0,0.8)] overflow-hidden font-sans select-none animate-in fade-in slide-in-from-bottom-4 duration-200">
+    <div
+      style={{
+        background: 'rgba(14, 15, 18, 0.78)',
+        backdropFilter: 'blur(24px) saturate(180%)',
+        WebkitBackdropFilter: 'blur(24px) saturate(180%)',
+      }}
+      className="absolute bottom-5 right-5 w-[420px] max-h-[380px] h-[360px] border border-white/10 rounded-2xl flex flex-col z-50 shadow-[0_24px_60px_rgba(0,0,0,0.8)] overflow-hidden font-sans select-none animate-in fade-in slide-in-from-bottom-4 duration-200"
+    >
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-white/[0.08] bg-white/[0.02]">
         <div className="flex items-center gap-2.5">

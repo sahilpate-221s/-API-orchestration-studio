@@ -20,7 +20,7 @@ export default function FlowCanvas() {
   } = useFlowStore()
 
   const memoNodeTypes = useMemo(() => nodeTypes, [])
-  const [zoomLevel, setZoomLevel] = useState(100)
+  const [zoomLevel, setZoomLevel] = useState(54)
 
   // Keyboard shortcut listener for Zoom (+ / - / Ctrl+0)
   useEffect(() => {
@@ -279,13 +279,18 @@ export default function FlowCanvas() {
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
-        onInit={(instance) => { rfInstance.current = instance }}
+        defaultViewport={{ x: 0, y: 0, zoom: 0.54 }}
+        onInit={(instance) => {
+          rfInstance.current = instance
+          instance.zoomTo(0.54)
+          setZoomLevel(54)
+        }}
         onNodeClick={onNodeClick}
         onPaneClick={onPaneClick}
         onMove={handleMove}
         nodeTypes={memoNodeTypes}
         fitView
-        fitViewOptions={{ padding: 0.5, maxZoom: 0.5 }}
+        fitViewOptions={{ padding: 0.5, maxZoom: 0.54 }}
         maxZoom={4}
         minZoom={0.1}
         panOnScroll={true}

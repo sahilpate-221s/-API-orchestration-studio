@@ -97,7 +97,7 @@ export default function ExecutionHistory({ onClose }: Props) {
   const [filterType, setFilterType] = useState<'all' | 'graph' | 'loadtest'>('all')
 
   // Dynamic Panel Resizing State
-  const [panelWidth, setPanelWidth] = useState(480)
+  const [panelWidth, setPanelWidth] = useState(360)
   const isDragging = useRef(false)
 
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
@@ -109,9 +109,9 @@ export default function ExecutionHistory({ onClose }: Props) {
     const handleMouseMove = (e: MouseEvent) => {
       if (!isDragging.current) return
       const newWidth = window.innerWidth - e.clientX
-      // Clamp panel width between 360px and 850px (or window.innerWidth - 60px)
+      // Clamp panel width between 280px and 850px
       const maxW = Math.min(920, window.innerWidth - 60)
-      const clamped = Math.max(360, Math.min(newWidth, maxW))
+      const clamped = Math.max(280, Math.min(newWidth, maxW))
       setPanelWidth(clamped)
     }
 
@@ -170,16 +170,21 @@ export default function ExecutionHistory({ onClose }: Props) {
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end overflow-hidden font-sans select-none">
-      {/* Glass Backdrop */}
+      {/* Subtle Ambient Glass Backdrop */}
       <div
-        className="absolute inset-0 bg-black/65 backdrop-blur-sm transition-opacity duration-200"
+        className="absolute inset-0 bg-black/25 backdrop-blur-[2px] transition-opacity duration-200"
         onClick={onClose}
       />
 
-      {/* Drawer Panel Container */}
+      {/* Glassmorphic Drawer Panel Container */}
       <div
-        style={{ width: `${panelWidth}px` }}
-        className="relative h-full bg-[#0B0C0E]/95 backdrop-blur-2xl border-l border-white/10 flex flex-col shadow-[0_0_60px_rgba(0,0,0,0.9)] z-10 transition-[width] duration-75 ease-out"
+        style={{
+          width: `${panelWidth}px`,
+          background: 'rgba(11, 12, 14, 0.78)',
+          backdropFilter: 'blur(24px) saturate(180%)',
+          WebkitBackdropFilter: 'blur(24px) saturate(180%)',
+        }}
+        className="relative h-full border-l border-white/10 flex flex-col shadow-[-12px_0_48px_rgba(0,0,0,0.7)] z-10 transition-[width] duration-75 ease-out"
       >
         {/* Dynamic Resize Handle (Drag Left/Right) */}
         <div

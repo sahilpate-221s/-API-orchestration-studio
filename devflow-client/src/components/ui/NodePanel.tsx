@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef, useCallback } from 'react'
 import { useFlowStore } from '../../store/flowStore'
 import type {
   HttpMethod,
@@ -34,6 +34,34 @@ type Tab = 'config' | 'response' | 'mappings'
 export default function NodePanel() {
   const { nodes, selectedNodeId, setSelectedNode, updateNodeData } = useFlowStore()
   const selectedNode = nodes.find((n) => n.id === selectedNodeId)
+
+  const [panelWidth, setPanelWidth] = useState(360)
+  const isDraggingPanel = useRef(false)
+
+  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+    e.preventDefault()
+    isDraggingPanel.current = true
+    document.body.style.cursor = 'col-resize'
+    document.body.style.userSelect = 'none'
+
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isDraggingPanel.current) return
+      const newWidth = window.innerWidth - e.clientX
+      const clamped = Math.max(280, Math.min(newWidth, 600))
+      setPanelWidth(clamped)
+    }
+
+    const handleMouseUp = () => {
+      isDraggingPanel.current = false
+      document.body.style.cursor = ''
+      document.body.style.userSelect = ''
+      window.removeEventListener('mousemove', handleMouseMove)
+      window.removeEventListener('mouseup', handleMouseUp)
+    }
+
+    window.addEventListener('mousemove', handleMouseMove)
+    window.addEventListener('mouseup', handleMouseUp)
+  }, [])
 
   const [tab, setTab] = useState<Tab>('config')
   const [form, setForm] = useState<Partial<NodeData>>({})
@@ -157,28 +185,62 @@ export default function NodePanel() {
     { id: 'mappings', label: 'Mappings' },
   ]
 
-  const labelStyle: React.CSSProperties = { fontSize: '10px', fontWeight: 600, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px', display: 'block' }
-  const inputStyle: React.CSSProperties = { width: '100%', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px', padding: '8px 12px', fontSize: '12px', color: '#fff', outline: 'none', transition: 'border-color 0.15s ease' }
-  const monoInputStyle: React.CSSProperties = { ...inputStyle, fontFamily: 'monospace', fontSize: '11px' }
+  const labelStyle: React.CSSProperties = { fontSize: '10px', fontWeight: 600, color: '#5A5C64', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px', display: 'block', fontFamily: "'JetBrains Mono', monospace" }
+  const inputStyle: React.CSSProperties = { width: '100%', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px', padding: '8px 12px', fontSize: '12px', color: '#F2F3F5', outline: 'none', transition: 'border-color 0.15s ease', fontFamily: "'Inter', sans-serif" }
+  const monoInputStyle: React.CSSProperties = { ...inputStyle, fontFamily: "'JetBrains Mono', monospace", fontSize: '11px' }
   const smallInputStyle: React.CSSProperties = { ...inputStyle, padding: '6px 10px', fontSize: '11px', flex: 1 }
 
   return (
     <>
       <div style={{ position: 'absolute', inset: 0, zIndex: 10 }} onClick={() => setSelectedNode(null)} />
       
-      <div style={{ position: 'absolute', right: 0, top: 0, height: '100%', width: '340px', zIndex: 20, background: '#0a0a0a', borderLeft: '1px solid rgba(255,255,255,0.08)', display: 'flex', flexDirection: 'column', boxShadow: '-10px 0 30px rgba(0,0,0,0.5)' }}>
+      <div 
+        style={{ 
+          position: 'absolute', 
+          right: 0, 
+          top: 0, 
+          height: '100%', 
+          width: `${panelWidth}px`, 
+          zIndex: 20, 
+          background: 'rgba(11, 12, 14, 0.78)', 
+          backdropFilter: 'blur(24px)', 
+          borderLeft: '1px solid rgba(255,255,255,0.08)', 
+          display: 'flex', 
+          flexDirection: 'column', 
+          boxShadow: '-10px 0 30px rgba(0,0,0,0.5)',
+          fontFamily: "'Inter', system-ui, sans-serif",
+          animation: 'slideInRight 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
+          transition: isDraggingPanel.current ? 'none' : 'width 0.1s ease',
+        }}
+      >
+        {/* Dynamic Drag Handle on left edge */}
+        <div
+          onMouseDown={handleMouseDown}
+          title="Drag left/right to adjust panel width"
+          style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: '12px', marginLeft: '-6px', cursor: 'col-resize', zIndex: 40, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+        >
+          <div style={{ width: '4px', height: '56px', borderRadius: '4px', background: 'rgba(255,255,255,0.2)' }} />
+        </div>
+
+        <style>{`
+          @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Inter+Tight:wght@700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+          @keyframes slideInRight {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+          }
+        `}</style>
         
         {/* Header */}
         <div style={{ padding: '16px 20px', borderBottom: '1px solid rgba(255,255,255,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0 }}>
             <div style={{ height: '22px', padding: '0 8px', borderRadius: '6px', background: mConf.bg, border: `1px solid ${mConf.border}`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-              <span style={{ fontSize: '10px', fontWeight: 800, letterSpacing: '0.05em', color: mConf.color }}>{form.method}</span>
+              <span style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.05em', color: mConf.color, fontFamily: "'JetBrains Mono', monospace" }}>{form.method}</span>
             </div>
-            <span style={{ fontSize: '14px', fontWeight: 600, color: '#fff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            <span style={{ fontSize: '14px', fontWeight: 600, color: '#F2F3F5', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
               {form.label}
             </span>
           </div>
-          <button onClick={() => setSelectedNode(null)} style={{ background: 'transparent', border: 'none', color: 'rgba(255,255,255,0.4)', cursor: 'pointer', padding: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <button onClick={() => setSelectedNode(null)} style={{ background: 'transparent', border: 'none', color: '#93959D', cursor: 'pointer', padding: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
           </button>
         </div>
@@ -189,11 +251,11 @@ export default function NodePanel() {
             <button
               key={t.id}
               onClick={() => setTab(t.id)}
-              style={{ flex: 1, padding: '12px 0', background: 'transparent', border: 'none', borderBottom: `2px solid ${tab === t.id ? '#60a5fa' : 'transparent'}`, color: tab === t.id ? '#fff' : 'rgba(255,255,255,0.5)', fontSize: '12px', fontWeight: 600, cursor: 'pointer', transition: 'all 0.15s ease', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+              style={{ flex: 1, padding: '12px 0', background: 'transparent', border: 'none', borderBottom: `2px solid ${tab === t.id ? '#3ECF8E' : 'transparent'}`, color: tab === t.id ? '#F2F3F5' : '#93959D', fontSize: '12px', fontWeight: 600, cursor: 'pointer', transition: 'all 0.15s ease', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
             >
               {t.label}
               {t.id === 'response' && (response || error) && (
-                <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: error ? '#f87171' : '#34d399' }} />
+                <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: error ? '#E24B4A' : '#3ECF8E' }} />
               )}
             </button>
           ))}
@@ -206,10 +268,10 @@ export default function NodePanel() {
             <>
               {/* AI Generation */}
               <div>
-                <label style={labelStyle}><span style={{ color: '#60a5fa', marginRight: '4px' }}>✦</span> AI Assistant</label>
+                <label style={labelStyle}><span style={{ color: '#3ECF8E', marginRight: '4px' }}>✦</span> AI Assistant</label>
                 <div style={{ display: 'flex', gap: '8px' }}>
                   <input value={aiPrompt} onChange={(e) => setAiPrompt(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && generateWithAI()} placeholder="Describe what this API should do..." style={inputStyle} />
-                  <button onClick={generateWithAI} disabled={aiLoading || !aiPrompt.trim()} style={{ background: '#60a5fa', border: 'none', borderRadius: '8px', padding: '0 16px', color: '#fff', fontWeight: 600, cursor: aiLoading || !aiPrompt.trim() ? 'not-allowed' : 'pointer', opacity: aiLoading || !aiPrompt.trim() ? 0.5 : 1 }}>
+                  <button onClick={generateWithAI} disabled={aiLoading || !aiPrompt.trim()} style={{ background: '#3ECF8E', border: 'none', borderRadius: '8px', padding: '0 16px', color: '#06110C', fontWeight: 700, cursor: aiLoading || !aiPrompt.trim() ? 'not-allowed' : 'pointer', opacity: aiLoading || !aiPrompt.trim() ? 0.5 : 1 }}>
                     {aiLoading ? '...' : 'Gen'}
                   </button>
                 </div>
@@ -245,7 +307,7 @@ export default function NodePanel() {
               <div>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
                   <label style={{ ...labelStyle, marginBottom: 0 }}>Query Parameters</label>
-                  <button onClick={addParam} style={{ background: 'transparent', border: 'none', color: '#60a5fa', fontSize: '11px', fontWeight: 600, cursor: 'pointer' }}>+ Add Param</button>
+                  <button onClick={addParam} style={{ background: 'transparent', border: 'none', color: '#3ECF8E', fontSize: '11px', fontWeight: 600, cursor: 'pointer' }}>+ Add Param</button>
                 </div>
                 {params.length === 0 && <p style={{ fontSize: '12px', color: 'rgba(255,255,255,0.3)', margin: 0 }}>No query parameters</p>}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
@@ -272,7 +334,7 @@ export default function NodePanel() {
                     const active = authConfig.type === a
                     const labelMap = { none: 'None', bearer: 'Bearer', basic: 'Basic', apikey: 'API Key' }
                     return (
-                      <button key={a} onClick={() => handleAuthChange({ ...authConfig, type: a })} style={{ padding: '6px 10px', borderRadius: '6px', fontSize: '10px', fontWeight: 600, cursor: 'pointer', background: active ? 'rgba(96,165,250,0.1)' : 'rgba(255,255,255,0.03)', border: `1px solid ${active ? 'rgba(96,165,250,0.3)' : 'rgba(255,255,255,0.08)'}`, color: active ? '#60a5fa' : 'rgba(255,255,255,0.5)', transition: 'all 0.15s ease' }}>
+                      <button key={a} onClick={() => handleAuthChange({ ...authConfig, type: a })} style={{ padding: '6px 10px', borderRadius: '6px', fontSize: '10px', fontWeight: 600, cursor: 'pointer', background: active ? 'rgba(62,207,142,0.1)' : 'rgba(255,255,255,0.03)', border: `1px solid ${active ? 'rgba(62,207,142,0.3)' : 'rgba(255,255,255,0.08)'}`, color: active ? '#3ECF8E' : '#93959D', transition: 'all 0.15s ease' }}>
                         {labelMap[a]}
                       </button>
                     )
@@ -304,7 +366,7 @@ export default function NodePanel() {
               <div>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
                   <label style={{ ...labelStyle, marginBottom: 0 }}>Headers</label>
-                  <button onClick={() => update('headers', { ...(form.headers ?? {}), '': '' })} style={{ background: 'transparent', border: 'none', color: '#60a5fa', fontSize: '11px', fontWeight: 600, cursor: 'pointer' }}>+ Add Header</button>
+                  <button onClick={() => update('headers', { ...(form.headers ?? {}), '': '' })} style={{ background: 'transparent', border: 'none', color: '#3ECF8E', fontSize: '11px', fontWeight: 600, cursor: 'pointer' }}>+ Add Header</button>
                 </div>
                 <HeadersEditor value={form.headers ?? {}} onChange={(h) => update('headers', h)} inputStyle={smallInputStyle} />
               </div>
@@ -317,7 +379,7 @@ export default function NodePanel() {
                       const active = bodyType === bt
                       const labelMap = { none: 'None', json: 'JSON', formdata: 'Form', file: 'File' }
                       return (
-                        <button key={bt} onClick={() => handleBodyTypeChange(bt)} style={{ padding: '6px 10px', borderRadius: '6px', fontSize: '10px', fontWeight: 600, cursor: 'pointer', background: active ? 'rgba(96,165,250,0.1)' : 'rgba(255,255,255,0.03)', border: `1px solid ${active ? 'rgba(96,165,250,0.3)' : 'rgba(255,255,255,0.08)'}`, color: active ? '#60a5fa' : 'rgba(255,255,255,0.5)', transition: 'all 0.15s ease' }}>
+                        <button key={bt} onClick={() => handleBodyTypeChange(bt)} style={{ padding: '6px 10px', borderRadius: '6px', fontSize: '10px', fontWeight: 600, cursor: 'pointer', background: active ? 'rgba(62,207,142,0.1)' : 'rgba(255,255,255,0.03)', border: `1px solid ${active ? 'rgba(62,207,142,0.3)' : 'rgba(255,255,255,0.08)'}`, color: active ? '#3ECF8E' : '#93959D', transition: 'all 0.15s ease' }}>
                           {labelMap[bt]}
                         </button>
                       )
@@ -439,7 +501,7 @@ export default function NodePanel() {
             <>
               <div>
                 <label style={labelStyle}>Field Mappings</label>
-                <p style={{ margin: 0, fontSize: '11px', color: 'rgba(255,255,255,0.3)' }}>Map data from upstream nodes into this request.</p>
+                <p style={{ margin: 0, fontSize: '11px', color: '#93959D' }}>Map data from upstream nodes into this request.</p>
               </div>
               <FieldMapper nodeId={selectedNode.id} />
             </>

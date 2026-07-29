@@ -76,8 +76,8 @@ export default function Sidebar() {
 
   const [hoveredMethod, setHoveredMethod] = useState<string | null>(null)
   const [tooltip, setTooltip] = useState<TooltipState>(null)
-  const [builtinOpen, setBuiltinOpen] = useState(true)
-  const [customOpen, setCustomOpen] = useState(true)
+  const [builtinOpen, setBuiltinOpen] = useState(false)
+  const [customOpen, setCustomOpen] = useState(false)
   const [customTemplates, setCustomTemplates] = useState<CustomTemplate[]>([])
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [newTplName, setNewTplName] = useState('')

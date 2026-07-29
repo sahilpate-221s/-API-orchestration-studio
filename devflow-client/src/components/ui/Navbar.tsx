@@ -6,7 +6,6 @@ import {
   Home,
   Folder,
   ChevronDown,
-  Search,
   CircleDot,
   RotateCcw,
   Save,
@@ -17,21 +16,18 @@ import {
   Check,
   AlertCircle,
   Loader2,
-  Command,
 } from 'lucide-react'
 
 export default function Navbar({ 
   onHome, 
   onHistoryClick, 
   onLogClick, 
-  onPaletteClick,
   onBenchmarkClick,
   logOpen 
 }: { 
   onHome?: () => void; 
   onHistoryClick?: () => void; 
   onLogClick?: () => void;
-  onPaletteClick?: () => void;
   onBenchmarkClick?: () => void;
   logOpen?: boolean;
 }) {
@@ -103,8 +99,8 @@ export default function Navbar({
   const activeWfName = workflows.find(w => w._id === workflowId)?.name || workflowName || 'Untitled Workflow'
 
   return (
-    <header className="h-[52px] w-full bg-[#0B0C0E] border-b border-white/[0.08] flex items-center justify-between px-4 shrink-0 z-30 gap-3 select-none font-sans">
-      {/* ── Left Section: Dashboard Home + Premium Workspace Breadcrumb ── */}
+    <header className="h-[52px] w-full bg-[#0B0C0E] border-b border-white/[0.08] flex items-center justify-between px-4 md:px-6 shrink-0 z-30 gap-3 select-none font-sans">
+      {/* ── Left Section: Dashboard Home + Workspace & Workflow Selector ── */}
       <div className="flex items-center gap-2.5 min-w-0 shrink">
         {/* Home / Dashboard Link */}
         <button
@@ -124,19 +120,19 @@ export default function Navbar({
           <button
             type="button"
             onClick={() => setShowDropdown((v) => !v)}
-            className="flex items-center gap-2 px-2.5 py-1.5 rounded-xl bg-white/[0.03] border border-white/10 hover:border-white/20 hover:bg-white/[0.05] transition-all duration-150 max-w-[260px] sm:max-w-[380px] cursor-pointer"
+            className="flex items-center gap-2 px-2.5 py-1.5 rounded-xl bg-white/[0.03] border border-white/10 hover:border-white/20 hover:bg-white/[0.05] transition-all duration-150 max-w-[240px] sm:max-w-[340px] cursor-pointer"
           >
             <div className="flex items-center gap-1.5 shrink-0 text-[#93959D]">
               <Folder size={13} className="text-[#3ECF8E]" />
-              <span className="text-[11px] font-mono font-medium text-[#93959D] truncate max-w-[100px]">
+              <span className="text-[11px] font-mono font-medium text-[#93959D] truncate max-w-[90px]">
                 {workspace || 'My Workspace'}
               </span>
             </div>
 
-            <span className="text-[#5A5C64] font-mono text-xs font-light shrink-0">/</span>
+            <span className="text-white/20 text-xs font-light select-none">/</span>
 
-            <div className="flex items-center gap-1.5 min-w-0">
-              <span className="text-[13px] font-semibold text-white truncate tracking-tight">
+            <div className="flex items-center gap-1.5 min-w-0 flex-1">
+              <span className="text-xs font-semibold text-[#F2F3F5] truncate font-display">
                 {activeWfName}
               </span>
               <ChevronDown size={12} className={`text-[#5A5C64] transition-transform duration-200 shrink-0 ${showDropdown ? 'rotate-180 text-[#3ECF8E]' : ''}`} />
@@ -168,14 +164,14 @@ export default function Navbar({
                             window.location.href = `/canvas/${w._id}`
                           }
                         }}
-                        className={`w-full flex items-center justify-between px-2.5 py-2 rounded-lg text-xs transition-colors cursor-pointer ${
+                        className={`w-full text-left px-2.5 py-2 rounded-lg text-xs flex items-center justify-between transition-colors cursor-pointer ${
                           isActive
-                            ? 'bg-[#3ECF8E]/10 text-[#3ECF8E] font-medium'
-                            : 'text-[#C9CBD1] hover:bg-white/[0.05] hover:text-white'
+                            ? 'bg-[#3ECF8E]/10 text-[#3ECF8E] font-semibold'
+                            : 'text-[#93959D] hover:text-white hover:bg-white/[0.04]'
                         }`}
                       >
-                        <span className="truncate">{w.name}</span>
-                        {isActive && <span className="w-1.5 h-1.5 rounded-full bg-[#3ECF8E] shrink-0" />}
+                        <span className="truncate pr-2">{w.name}</span>
+                        {isActive && <Check size={12} className="text-[#3ECF8E] shrink-0" />}
                       </button>
                     )
                   })
@@ -184,23 +180,10 @@ export default function Navbar({
             </div>
           )}
         </div>
-
-        {/* Command Palette Button */}
-        <button
-          type="button"
-          onClick={onPaletteClick}
-          className="hidden md:flex items-center gap-2 px-2.5 py-1.5 rounded-full bg-white/[0.03] border border-white/10 hover:border-white/20 hover:bg-white/[0.06] text-[#5A5C64] hover:text-white transition-all text-xs font-mono shrink-0 cursor-pointer"
-        >
-          <Search size={12} className="text-[#93959D]" />
-          <span className="text-[11px] text-[#93959D]">Search</span>
-          <span className="flex items-center gap-0.5 text-[9px] text-[#5A5C64] bg-white/[0.04] border border-white/10 rounded px-1.5 py-0.5">
-            <Command size={9} /> K
-          </span>
-        </button>
       </div>
 
-      {/* ── Center Section: Live Status & Telemetry Badge ── */}
-      <div className="hidden lg:flex items-center gap-3 px-3 py-1 rounded-full bg-white/[0.03] border border-white/[0.07] shrink-0 text-[11px] font-mono">
+      {/* ── Center Section: Live Telemetry Status Badge ── */}
+      <div className="hidden lg:flex items-center gap-3 px-3 py-1.5 rounded-full bg-white/[0.03] border border-white/[0.07] shrink-0 text-[11px] font-mono">
         <div className="flex items-center gap-1.5">
           <CircleDot size={10} className={isRunning ? 'text-[#8B7CF6] animate-pulse' : 'text-[#3ECF8E]'} />
           <span className={`font-semibold tracking-wider ${isRunning ? 'text-[#8B7CF6]' : 'text-[#3ECF8E]'}`}>
@@ -225,99 +208,106 @@ export default function Navbar({
       </div>
 
       {/* ── Right Section: Action Controls & Primary Run CTA ── */}
-      <div className="flex items-center gap-1.5 shrink-0">
-        {/* Reset */}
-        <button
-          type="button"
-          onClick={resetWorkflow}
-          disabled={isRunning}
-          title="Reset Execution State"
-          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-medium bg-white/[0.03] border border-white/10 hover:bg-white/[0.07] hover:border-white/20 text-[#93959D] hover:text-white disabled:opacity-40 disabled:cursor-not-allowed transition-all cursor-pointer"
-        >
-          <RotateCcw size={13} />
-          <span className="hidden xl:inline">Reset</span>
-        </button>
+      <div className="flex items-center gap-2 shrink-0">
+        {/* Expanded Action Toolbar Pill */}
+        <div className="flex items-center p-0.5 rounded-full bg-[#131417] border border-white/[0.08] shrink-0 shadow-inner">
+          {/* Save */}
+          <button
+            type="button"
+            onClick={handleSave}
+            disabled={saveStatus === 'saving'}
+            title="Save Workflow (Ctrl+S)"
+            className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium transition-all cursor-pointer ${
+              saveStatus === 'saved'
+                ? 'bg-[#3ECF8E]/15 text-[#3ECF8E] font-semibold'
+                : saveStatus === 'error'
+                ? 'bg-[#E24B4A]/15 text-[#E24B4A]'
+                : 'text-[#93959D] hover:text-white hover:bg-white/[0.06]'
+            }`}
+          >
+            {saveStatus === 'saving' ? (
+              <Loader2 size={13} className="animate-spin text-[#3ECF8E]" />
+            ) : saveStatus === 'saved' ? (
+              <Check size={13} />
+            ) : saveStatus === 'error' ? (
+              <AlertCircle size={13} />
+            ) : (
+              <Save size={13} />
+            )}
+            <span className="text-[11px] hidden lg:inline">
+              {saveStatus === 'saving' ? 'Saving…' : saveStatus === 'saved' ? 'Saved' : 'Save'}
+            </span>
+          </button>
 
-        {/* Save */}
-        <button
-          type="button"
-          onClick={handleSave}
-          disabled={saveStatus === 'saving'}
-          title="Save Workflow"
-          className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-medium border transition-all cursor-pointer ${
-            saveStatus === 'saved'
-              ? 'bg-[#3ECF8E]/10 border-[#3ECF8E]/30 text-[#3ECF8E]'
-              : saveStatus === 'error'
-              ? 'bg-[#E24B4A]/10 border-[#E24B4A]/30 text-[#E24B4A]'
-              : 'bg-white/[0.03] border-white/10 hover:bg-white/[0.07] hover:border-white/20 text-[#93959D] hover:text-white'
-          }`}
-        >
-          {saveStatus === 'saving' ? (
-            <Loader2 size={13} className="animate-spin text-[#3ECF8E]" />
-          ) : saveStatus === 'saved' ? (
-            <Check size={13} />
-          ) : saveStatus === 'error' ? (
-            <AlertCircle size={13} />
-          ) : (
-            <Save size={13} />
-          )}
-          <span className="hidden xl:inline">
-            {saveStatus === 'saving' ? 'Saving…' : saveStatus === 'saved' ? 'Saved' : saveStatus === 'error' ? 'Error' : 'Save'}
-          </span>
-        </button>
+          <div className="w-px h-3.5 bg-white/10" />
 
-        {/* History */}
-        <button
-          type="button"
-          onClick={onHistoryClick}
-          title="Execution History"
-          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-medium bg-white/[0.03] border border-white/10 hover:bg-white/[0.07] hover:border-white/20 text-[#93959D] hover:text-white transition-all cursor-pointer"
-        >
-          <Clock size={13} />
-          <span className="hidden xl:inline">History</span>
-        </button>
+          {/* Reset */}
+          <button
+            type="button"
+            onClick={resetWorkflow}
+            disabled={isRunning}
+            title="Reset Execution State"
+            className="flex items-center gap-1 px-2 py-1 rounded-full text-[#93959D] hover:text-white hover:bg-white/[0.06] text-xs font-medium transition-all disabled:opacity-40 cursor-pointer"
+          >
+            <RotateCcw size={13} />
+            <span className="text-[11px] hidden lg:inline">Reset</span>
+          </button>
 
-        {/* Console Log */}
-        <button
-          type="button"
-          onClick={onLogClick}
-          title="Console Execution Logs"
-          className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-medium border transition-all cursor-pointer ${
-            logOpen
-              ? 'bg-[#3ECF8E]/10 border-[#3ECF8E]/40 text-[#3ECF8E]'
-              : 'bg-white/[0.03] border-white/10 hover:bg-white/[0.07] hover:border-white/20 text-[#93959D] hover:text-white'
-          }`}
-        >
-          <Terminal size={13} />
-          <span className="hidden xl:inline">Console</span>
-        </button>
+          <div className="w-px h-3.5 bg-white/10" />
 
-        {/* Load Test / Benchmark */}
-        <button
-          type="button"
-          onClick={onBenchmarkClick}
-          title="Load Test Benchmark"
-          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-medium bg-white/[0.03] border border-white/10 hover:bg-white/[0.07] hover:border-white/20 text-[#93959D] hover:text-white transition-all cursor-pointer"
-        >
-          <Zap size={13} className="text-[#3ECF8E]" />
-          <span className="hidden xl:inline">Benchmark</span>
-        </button>
+          {/* History */}
+          <button
+            type="button"
+            onClick={onHistoryClick}
+            title="Execution History"
+            className="flex items-center gap-1 px-2 py-1 rounded-full text-[#93959D] hover:text-white hover:bg-white/[0.06] text-xs font-medium transition-all cursor-pointer"
+          >
+            <Clock size={13} />
+            <span className="text-[11px] hidden lg:inline">History</span>
+          </button>
 
-        <div className="w-px h-4 bg-white/10 mx-0.5" />
+          <div className="w-px h-3.5 bg-white/10" />
+
+          {/* Console Log */}
+          <button
+            type="button"
+            onClick={onLogClick}
+            title="Console Execution Logs"
+            className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium transition-all cursor-pointer ${
+              logOpen ? 'bg-[#3ECF8E]/15 text-[#3ECF8E]' : 'text-[#93959D] hover:text-white hover:bg-white/[0.06]'
+            }`}
+          >
+            <Terminal size={13} />
+            <span className="text-[11px] hidden lg:inline">Console</span>
+          </button>
+
+          <div className="w-px h-3.5 bg-white/10" />
+
+          {/* Benchmark */}
+          <button
+            type="button"
+            onClick={onBenchmarkClick}
+            title="Load Test Benchmark Studio"
+            className="flex items-center gap-1 px-2.5 py-1 rounded-full text-[#3ECF8E] hover:bg-[#3ECF8E]/10 text-xs font-semibold transition-all cursor-pointer"
+          >
+            <Zap size={13} />
+            <span className="text-[11px] hidden lg:inline">Benchmark</span>
+          </button>
+        </div>
 
         {/* Primary Run Workflow Button */}
         <button
           type="button"
           onClick={runWorkflow}
           disabled={isRunning}
-          className="flex items-center gap-2 px-4 py-1.5 rounded-full bg-[#3ECF8E] text-[#06110C] hover:bg-[#5BDA9F] font-semibold text-xs transition-all active:scale-[0.97] shadow-none hover:shadow-[0_0_0_1px_rgba(62,207,142,0.4),0_8px_20px_-4px_rgba(62,207,142,0.5)] disabled:opacity-60 disabled:cursor-not-allowed shrink-0 cursor-pointer"
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#3ECF8E] text-[#06110C] hover:bg-[#5BDA9F] font-semibold text-xs transition-all active:scale-[0.97] shadow-none hover:shadow-[0_0_0_1px_rgba(62,207,142,0.4),0_8px_20px_-4px_rgba(62,207,142,0.5)] disabled:opacity-60 disabled:cursor-not-allowed shrink-0 cursor-pointer"
         >
           {isRunning ? (
             <Loader2 size={13} className="animate-spin" />
           ) : (
             <Play size={12} className="fill-current" />
           )}
-          <span>{isRunning ? 'Running…' : 'Run Workflow'}</span>
+          <span>{isRunning ? 'Running' : 'Run'}</span>
         </button>
       </div>
     </header>
