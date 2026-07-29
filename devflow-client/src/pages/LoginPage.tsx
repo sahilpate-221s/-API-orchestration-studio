@@ -42,15 +42,15 @@ export default function LoginPage({ initialMode = 'login', onBack }: LoginPagePr
       style={{
         width: '100%',
         minHeight: '100vh',
-        background: '#000000',
+        background: '#0B0C0E',
         display: 'flex',
         flexDirection: 'column',
-        fontFamily: '"Outfit", "Inter", sans-serif',
+        fontFamily: '"Inter", sans-serif',
       }}
     >
       <div style={{ display: 'flex', flexWrap: 'wrap', flex: 1, position: 'relative', overflow: 'hidden' }}>
         <style>{`
-          @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap');
+          @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Inter+Tight:wght@700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
 
           .auth-input {
             width: 100%;
@@ -59,7 +59,7 @@ export default function LoginPage({ initialMode = 'login', onBack }: LoginPagePr
             border-radius: 12px;
             padding: 14px 16px;
             font-size: 15px;
-            color: #ffffff;
+            color: #F2F3F5;
             outline: none;
             transition: all 0.2s ease;
             font-family: inherit;
@@ -69,9 +69,9 @@ export default function LoginPage({ initialMode = 'login', onBack }: LoginPagePr
             color: rgba(255,255,255,0.2);
           }
           .auth-input:focus {
-            border-color: rgba(99,102,241,0.6);
-            background: rgba(99,102,241,0.05);
-            box-shadow: 0 0 0 3px rgba(99,102,241,0.1);
+            border-color: rgba(62,207,142,0.6);
+            background: rgba(62,207,142,0.05);
+            box-shadow: 0 0 0 3px rgba(62,207,142,0.1);
           }
           .auth-tab {
             flex: 1;
@@ -86,7 +86,7 @@ export default function LoginPage({ initialMode = 'login', onBack }: LoginPagePr
           }
           .auth-tab-active {
             background: rgba(255,255,255,0.08);
-            color: #ffffff;
+            color: #F2F3F5;
           }
           .auth-tab-inactive {
             background: transparent;
@@ -100,8 +100,8 @@ export default function LoginPage({ initialMode = 'login', onBack }: LoginPagePr
             padding: 14px;
             border-radius: 12px;
             border: none;
-            background: #ffffff;
-            color: #000000;
+            background: #3ECF8E;
+            color: #06110C;
             font-size: 15px;
             font-weight: 700;
             cursor: pointer;
@@ -110,9 +110,9 @@ export default function LoginPage({ initialMode = 'login', onBack }: LoginPagePr
             letter-spacing: -0.01em;
           }
           .auth-submit-btn:hover:not(:disabled) {
-            background: #f4f4f5;
+            background: #5BDA9F;
             transform: translateY(-1px);
-            box-shadow: 0 8px 24px rgba(255,255,255,0.15);
+            box-shadow: 0 8px 24px rgba(62,207,142,0.35);
           }
           .auth-submit-btn:active:not(:disabled) {
             transform: translateY(0);
@@ -154,7 +154,7 @@ export default function LoginPage({ initialMode = 'login', onBack }: LoginPagePr
             width: 600px;
             height: 600px;
             border-radius: 50%;
-            background: radial-gradient(circle, rgba(99,102,241,0.15) 0%, transparent 70%);
+            background: radial-gradient(circle, rgba(62,207,142,0.12) 0%, transparent 70%);
             top: -200px;
             right: -100px;
             pointer-events: none;
@@ -164,7 +164,7 @@ export default function LoginPage({ initialMode = 'login', onBack }: LoginPagePr
             width: 400px;
             height: 400px;
             border-radius: 50%;
-            background: radial-gradient(circle, rgba(139,92,246,0.1) 0%, transparent 70%);
+            background: radial-gradient(circle, rgba(139,124,246,0.10) 0%, transparent 70%);
             bottom: -100px;
             left: -100px;
             pointer-events: none;
@@ -233,25 +233,26 @@ export default function LoginPage({ initialMode = 'login', onBack }: LoginPagePr
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '40px' }}>
             <div style={{
               width: '36px', height: '36px', borderRadius: '10px',
-              background: '#ffffff', display: 'flex', alignItems: 'center',
-              justifyContent: 'center', boxShadow: '0 0 20px rgba(255,255,255,0.2)',
+              background: '#131417', border: '1px solid rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center',
+              justifyContent: 'center', boxShadow: '0 0 20px rgba(62,207,142,0.2)',
               flexShrink: 0,
             }}>
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="#000">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="#3ECF8E">
                 <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
               </svg>
             </div>
-            <span style={{ fontSize: '20px', fontWeight: 800, color: '#fff', letterSpacing: '-0.03em' }}>DevFlow</span>
+            <span style={{ fontSize: '20px', fontWeight: 800, color: '#F2F3F5', letterSpacing: '-0.03em', fontFamily: "'Inter Tight', 'Inter', sans-serif" }}>DevFlow</span>
           </div>
 
           {/* Hero text */}
           <h2 style={{
-            fontSize: '48px', fontWeight: 800, color: '#fff',
+            fontSize: '48px', fontWeight: 800, color: '#F2F3F5',
             lineHeight: 1.1, letterSpacing: '-0.04em', marginBottom: '20px',
+            fontFamily: "'Inter Tight', 'Inter', sans-serif",
           }}>
             Build APIs<br />
             <span style={{
-              background: 'linear-gradient(135deg, #a5b4fc 0%, #818cf8 100%)',
+              background: 'linear-gradient(135deg, #3ECF8E 0%, #8B7CF6 100%)',
               WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
             }}>visually.</span>
           </h2>
@@ -262,9 +263,9 @@ export default function LoginPage({ initialMode = 'login', onBack }: LoginPagePr
           {/* Decorative flow cards */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', maxWidth: '380px' }}>
             {[
-              { color: '#34d399', method: 'GET', label: 'Fetch User Profile', time: '12ms' },
-              { color: '#60a5fa', method: 'POST', label: 'Send Notification', time: '38ms' },
-              { color: '#f472b6', method: 'PUT', label: 'Update Order Status', time: '25ms' },
+              { color: '#3ECF8E', method: 'GET', label: 'Fetch User Profile', time: '12ms' },
+              { color: '#8B7CF6', method: 'POST', label: 'Send Notification', time: '38ms' },
+              { color: '#5DCAA5', method: 'PUT', label: 'Update Order Status', time: '25ms' },
             ].map((node, i) => (
               <div key={i} className={`node-card ${i === 1 ? 'node-card-b' : ''}`}
                 style={{ animationDelay: `${i * 1.5}s` }}>
@@ -272,10 +273,10 @@ export default function LoginPage({ initialMode = 'login', onBack }: LoginPagePr
                 <div style={{
                   fontSize: '11px', fontWeight: 700, color: node.color,
                   background: `${node.color}18`, padding: '3px 8px',
-                  borderRadius: '6px', flexShrink: 0,
+                  borderRadius: '6px', flexShrink: 0, fontFamily: "'JetBrains Mono', monospace",
                 }}>{node.method}</div>
                 <div style={{ fontSize: '13px', color: 'rgba(255,255,255,0.6)', flex: 1 }}>{node.label}</div>
-                <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.2)', flexShrink: 0 }}>{node.time}</div>
+                <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.2)', flexShrink: 0, fontFamily: "'JetBrains Mono', monospace" }}>{node.time}</div>
               </div>
             ))}
           </div>
@@ -284,7 +285,7 @@ export default function LoginPage({ initialMode = 'login', onBack }: LoginPagePr
           <div style={{ display: 'flex', gap: '40px', marginTop: '64px' }}>
             {[['10k+', 'Workflows Built'], ['99.9%', 'Uptime'], ['<20ms', 'Avg Latency']].map(([val, label]) => (
               <div key={label}>
-                <div style={{ fontSize: '22px', fontWeight: 800, color: '#fff', letterSpacing: '-0.03em' }}>{val}</div>
+                <div style={{ fontSize: '22px', fontWeight: 800, color: '#F2F3F5', letterSpacing: '-0.03em', fontFamily: "'JetBrains Mono', monospace" }}>{val}</div>
                 <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.3)', marginTop: '2px' }}>{label}</div>
               </div>
             ))}
@@ -313,7 +314,7 @@ export default function LoginPage({ initialMode = 'login', onBack }: LoginPagePr
 
           {/* Heading */}
           <div style={{ marginBottom: '36px' }}>
-            <h1 style={{ fontSize: '28px', fontWeight: 800, color: '#fff', marginBottom: '8px', letterSpacing: '-0.03em' }}>
+            <h1 style={{ fontSize: '28px', fontWeight: 800, color: '#F2F3F5', marginBottom: '8px', letterSpacing: '-0.03em', fontFamily: "'Inter Tight', 'Inter', sans-serif" }}>
               {mode === 'login' ? 'Welcome back' : 'Create your account'}
             </h1>
             <p style={{ fontSize: '14px', color: 'rgba(255,255,255,0.3)' }}>
@@ -391,15 +392,15 @@ export default function LoginPage({ initialMode = 'login', onBack }: LoginPagePr
           {error && (
             <div style={{
               display: 'flex', alignItems: 'center', gap: '8px',
-              background: 'rgba(239,68,68,0.08)',
-              border: '1px solid rgba(239,68,68,0.2)',
+              background: 'rgba(226,75,74,0.08)',
+              border: '1px solid rgba(226,75,74,0.2)',
               borderRadius: '10px', padding: '12px 14px',
               marginBottom: '16px',
             }}>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#f87171" strokeWidth="2.5" strokeLinecap="round" style={{ flexShrink: 0 }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#E24B4A" strokeWidth="2.5" strokeLinecap="round" style={{ flexShrink: 0 }}>
                 <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
               </svg>
-              <span style={{ fontSize: '13px', color: '#f87171' }}>{error}</span>
+              <span style={{ fontSize: '13px', color: '#E24B4A' }}>{error}</span>
             </div>
           )}
 
@@ -413,8 +414,8 @@ export default function LoginPage({ initialMode = 'login', onBack }: LoginPagePr
             {loading ? (
               <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
                 <svg style={{ animation: 'spin-slow 0.8s linear infinite' }} width="16" height="16" viewBox="0 0 24 24" fill="none">
-                  <circle cx="12" cy="12" r="10" stroke="rgba(0,0,0,0.2)" strokeWidth="4"/>
-                  <path fill="rgba(0,0,0,0.6)" d="M4 12a8 8 0 018-8v8z"/>
+                  <circle cx="12" cy="12" r="10" stroke="rgba(6,17,12,0.2)" strokeWidth="4"/>
+                  <path fill="rgba(6,17,12,0.6)" d="M4 12a8 8 0 018-8v8z"/>
                 </svg>
                 {mode === 'login' ? 'Signing in...' : 'Creating account...'}
               </span>
@@ -429,7 +430,7 @@ export default function LoginPage({ initialMode = 'login', onBack }: LoginPagePr
             <button
               onClick={() => switchMode(mode === 'login' ? 'register' : 'login')}
               style={{
-                background: 'none', border: 'none', color: 'rgba(165,180,252,0.8)',
+                background: 'none', border: 'none', color: '#3ECF8E',
                 cursor: 'pointer', fontSize: '13px', fontFamily: 'inherit',
                 fontWeight: 600, padding: 0,
                 textDecoration: 'underline', textUnderlineOffset: '3px',

@@ -1,7 +1,12 @@
 import { create } from 'zustand'
 import { getStoredUser, isAuthenticated, logout } from '../services/authService'
 
-type User = { id: string; email: string; name: string }
+type User = {
+  _id?: string
+  id?: string
+  email: string
+  name: string
+}
 
 type AuthStore = {
   user: User | null
@@ -11,7 +16,6 @@ type AuthStore = {
 }
 
 export const useAuthStore = create<AuthStore>((set) => {
-  // Listen for 401 events from the API interceptor and auto-clear auth
   window.addEventListener('devflow:unauthorized', () => {
     logout()
     set({ user: null, isAuth: false })

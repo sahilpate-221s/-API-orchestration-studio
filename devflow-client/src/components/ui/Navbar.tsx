@@ -2,6 +2,23 @@ import { useExecution } from '../../hooks/useExecution'
 import { useFlowStore } from '../../store/flowStore'
 import { saveWorkflow, createWorkflow, fetchWorkflows } from '../../services/workflowService'
 import { useState, useEffect, useRef, useCallback } from 'react'
+import {
+  Home,
+  Folder,
+  ChevronDown,
+  Search,
+  CircleDot,
+  RotateCcw,
+  Save,
+  Clock,
+  Terminal,
+  Zap,
+  Play,
+  Check,
+  AlertCircle,
+  Loader2,
+  Command,
+} from 'lucide-react'
 
 export default function Navbar({ 
   onHome, 
@@ -44,7 +61,6 @@ export default function Navbar({
     }
   }, [workspace])
 
-  // Always keep a ref to the latest save function so the debounced effect never captures stale values
   const latestSaveRef = useRef<() => Promise<void>>(async () => {})
 
   const handleSave = useCallback(async () => {
@@ -57,7 +73,6 @@ export default function Navbar({
         setWorkflowMeta(wf.id || wf._id, wf.name, wf.workspace)
       }
       setSaveStatus('saved')
-      // Reset back to idle after 2 s so the indicator fades
       setTimeout(() => setSaveStatus('idle'), 2000)
     } catch (err) {
       console.error('Save failed', err)
@@ -66,20 +81,16 @@ export default function Navbar({
     }
   }, [workflowId, workflowName, workspace, nodes, edges, setWorkflowMeta])
 
-  // Keep the ref up-to-date with the latest handleSave
   useEffect(() => {
     latestSaveRef.current = handleSave
   }, [handleSave])
 
-  // Auto-save: 5-second debounce after nodes/edges change
-  // Uses the ref so the timeout always calls the freshest version of handleSave
   const mountedRef = useRef(false)
   useEffect(() => {
     if (!mountedRef.current) {
       mountedRef.current = true
       return
     }
-    // Don't auto-save during execution (nodes have transient status states)
     if (!workflowId || isRunning) return
 
     const timer = setTimeout(() => {
@@ -89,460 +100,226 @@ export default function Navbar({
     return () => clearTimeout(timer)
   }, [nodes, edges, workflowId, isRunning])
 
+  const activeWfName = workflows.find(w => w._id === workflowId)?.name || workflowName || 'Untitled Workflow'
+
   return (
-    <div
-      style={{
-        height: '48px',
-        width: '100%',
-        background: 'rgba(10,10,10,0.95)',
-        borderBottom: '1px solid rgba(255,255,255,0.06)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        padding: '0 16px',
-        flexShrink: 0,
-        zIndex: 10,
-        backdropFilter: 'blur(12px)',
-        gap: '12px',
-        boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
-      }}
-    >
-      {/* ── Left: Logo + breadcrumb ── */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0 }}>
-        {/* Home Button */}
+    <header className="h-[52px] w-full bg-[#0B0C0E] border-b border-white/[0.08] flex items-center justify-between px-4 shrink-0 z-30 gap-3 select-none font-sans">
+      {/* ── Left Section: Dashboard Home + Premium Workspace Breadcrumb ── */}
+      <div className="flex items-center gap-2.5 min-w-0 shrink">
+        {/* Home / Dashboard Link */}
         <button
+          type="button"
           onClick={onHome}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-            cursor: onHome ? 'pointer' : 'default',
-            padding: '6px 12px',
-            background: 'rgba(255,255,255,0.05)',
-            border: '1px solid rgba(255,255,255,0.1)',
-            borderRadius: '8px',
-            transition: 'all 0.2s',
-          }}
-          onMouseEnter={(e) => { if(onHome) e.currentTarget.style.background = 'rgba(255,255,255,0.1)' }}
-          onMouseLeave={(e) => { if(onHome) e.currentTarget.style.background = 'rgba(255,255,255,0.05)' }}
+          title="Return to Dashboard"
+          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-white/[0.03] border border-white/10 hover:bg-white/[0.07] hover:border-white/20 text-[#93959D] hover:text-white transition-all duration-150 shrink-0 cursor-pointer"
         >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
-            <polyline points="9 22 9 12 15 12 15 22"></polyline>
-          </svg>
-          <span style={{ fontSize: '13px', fontWeight: 600, color: '#fff' }}>Home</span>
+          <Home size={14} className="text-[#3ECF8E]" />
+          <span className="text-xs font-medium hidden sm:inline">Dashboard</span>
         </button>
 
-        {/* Divider */}
-        <div style={{ width: '1px', height: '16px', background: 'rgba(255,255,255,0.09)', flexShrink: 0 }} />
+        <div className="w-px h-4 bg-white/10 shrink-0" />
 
-        {/* Breadcrumb */}
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '5px',
-            background: 'none',
-            border: 'none',
-            padding: '3px 6px',
-            borderRadius: '5px',
-            transition: 'background 0.15s ease',
-          }}
-          onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.05)' }}
-          onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'none' }}
-        >
-          <span style={{ fontSize: '13px', color: 'rgba(255,255,255,0.45)' }}>{workspace}</span>
-          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.25)" strokeWidth="2.5" strokeLinecap="round">
-            <polyline points="9 18 15 12 9 6" />
-          </svg>
-          <div 
-            ref={dropdownRef} 
-            style={{ position: 'relative', display: 'flex', alignItems: 'center' }}
+        {/* Workspace & Workflow Breadcrumb Dropdown */}
+        <div ref={dropdownRef} className="relative min-w-0">
+          <button
+            type="button"
+            onClick={() => setShowDropdown((v) => !v)}
+            className="flex items-center gap-2 px-2.5 py-1.5 rounded-xl bg-white/[0.03] border border-white/10 hover:border-white/20 hover:bg-white/[0.05] transition-all duration-150 max-w-[260px] sm:max-w-[380px] cursor-pointer"
           >
-            <div 
-              onClick={(e) => {
-                e.stopPropagation()
-                setShowDropdown(!showDropdown)
-              }}
-              style={{ 
-                background: 'transparent', 
-                border: 'none', 
-                color: 'rgba(255,255,255,0.75)', 
-                fontSize: '13px', 
-                fontWeight: 500, 
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '4px'
-              }}
-            >
-              {workflows.find(w => w._id === workflowId)?.name || workflowName}
-              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.5)" strokeWidth="2.5" strokeLinecap="round">
-                <polyline points="6 9 12 15 18 9" />
-              </svg>
+            <div className="flex items-center gap-1.5 shrink-0 text-[#93959D]">
+              <Folder size={13} className="text-[#3ECF8E]" />
+              <span className="text-[11px] font-mono font-medium text-[#93959D] truncate max-w-[100px]">
+                {workspace || 'My Workspace'}
+              </span>
             </div>
 
-            {showDropdown && (
-              <div style={{
-                position: 'absolute',
-                top: '100%',
-                left: 0,
-                marginTop: '8px',
-                background: '#141414',
-                border: '1px solid rgba(255,255,255,0.1)',
-                borderRadius: '8px',
-                padding: '4px',
-                minWidth: '150px',
-                boxShadow: '0 4px 20px rgba(0,0,0,0.5)',
-                zIndex: 50
-              }}>
-                {!workflowId && (
-                  <div style={{ padding: '6px 10px', fontSize: '13px', color: '#fff', opacity: 0.5 }}>
-                    {workflowName}
-                  </div>
-                )}
-                {workflows.map(w => (
-                  <div 
-                    key={w._id}
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      window.location.href = `/canvas/${w._id}`
-                    }}
-                    style={{
-                      padding: '6px 10px',
-                      fontSize: '13px',
-                      color: w._id === workflowId ? '#fff' : 'rgba(255,255,255,0.7)',
-                      background: w._id === workflowId ? 'rgba(255,255,255,0.1)' : 'transparent',
-                      borderRadius: '4px',
-                      cursor: 'pointer',
-                      transition: 'background 0.15s'
-                    }}
-                    onMouseEnter={e => { if(w._id !== workflowId) e.currentTarget.style.background = 'rgba(255,255,255,0.05)' }}
-                    onMouseLeave={e => { if(w._id !== workflowId) e.currentTarget.style.background = 'transparent' }}
-                  >
-                    {w.name}
-                  </div>
-                ))}
+            <span className="text-[#5A5C64] font-mono text-xs font-light shrink-0">/</span>
+
+            <div className="flex items-center gap-1.5 min-w-0">
+              <span className="text-[13px] font-semibold text-white truncate tracking-tight">
+                {activeWfName}
+              </span>
+              <ChevronDown size={12} className={`text-[#5A5C64] transition-transform duration-200 shrink-0 ${showDropdown ? 'rotate-180 text-[#3ECF8E]' : ''}`} />
+            </div>
+          </button>
+
+          {/* Workflow Picker Dropdown */}
+          {showDropdown && (
+            <div className="absolute top-[calc(100%+6px)] left-0 w-64 bg-[#131417] border border-white/10 rounded-xl p-1.5 shadow-[0_16px_40px_rgba(0,0,0,0.6)] z-50">
+              <div className="px-2.5 py-1.5 text-[10px] font-mono uppercase tracking-widest text-[#5A5C64] border-b border-white/[0.06] mb-1">
+                Workflows in {workspace}
               </div>
-            )}
-          </div>
+
+              <div className="max-h-56 overflow-y-auto custom-scrollbar space-y-0.5">
+                {workflows.length === 0 ? (
+                  <div className="px-3 py-2 text-xs text-[#93959D] italic">
+                    {activeWfName} (Current)
+                  </div>
+                ) : (
+                  workflows.map((w) => {
+                    const isActive = w._id === workflowId
+                    return (
+                      <button
+                        key={w._id}
+                        type="button"
+                        onClick={() => {
+                          setShowDropdown(false)
+                          if (w._id !== workflowId) {
+                            window.location.href = `/canvas/${w._id}`
+                          }
+                        }}
+                        className={`w-full flex items-center justify-between px-2.5 py-2 rounded-lg text-xs transition-colors cursor-pointer ${
+                          isActive
+                            ? 'bg-[#3ECF8E]/10 text-[#3ECF8E] font-medium'
+                            : 'text-[#C9CBD1] hover:bg-white/[0.05] hover:text-white'
+                        }`}
+                      >
+                        <span className="truncate">{w.name}</span>
+                        {isActive && <span className="w-1.5 h-1.5 rounded-full bg-[#3ECF8E] shrink-0" />}
+                      </button>
+                    )
+                  })
+                )}
+              </div>
+            </div>
+          )}
         </div>
 
-        {/* Cmd+K Palette Trigger */}
+        {/* Command Palette Button */}
         <button
+          type="button"
           onClick={onPaletteClick}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-            padding: '4px 10px',
-            background: 'rgba(255,255,255,0.04)',
-            border: '1px solid rgba(255,255,255,0.08)',
-            borderRadius: '10px',
-            cursor: 'pointer',
-            transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
-            minWidth: '110px',
-          }}
-          onMouseEnter={(e) => {
-            const el = e.currentTarget as HTMLElement
-            el.style.background = 'rgba(255,255,255,0.07)'
-            el.style.borderColor = 'rgba(255,255,255,0.3)'
-            el.style.boxShadow = '0 0 15px rgba(255,255,255,0.1)'
-          }}
-          onMouseLeave={(e) => {
-            const el = e.currentTarget as HTMLElement
-            el.style.background = 'rgba(255,255,255,0.04)'
-            el.style.borderColor = 'rgba(255,255,255,0.08)'
-            el.style.boxShadow = 'none'
-          }}
+          className="hidden md:flex items-center gap-2 px-2.5 py-1.5 rounded-full bg-white/[0.03] border border-white/10 hover:border-white/20 hover:bg-white/[0.06] text-[#5A5C64] hover:text-white transition-all text-xs font-mono shrink-0 cursor-pointer"
         >
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.4)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
-          </svg>
-          <span style={{ fontSize: '11px', fontWeight: 500, color: 'rgba(255,255,255,0.4)' }}>Search</span>
-          <span style={{ fontSize: '9px', color: 'rgba(255,255,255,0.2)', background: 'rgba(255,255,255,0.05)', padding: '1px 4px', borderRadius: '4px', border: '1px solid rgba(255,255,255,0.06)', marginLeft: 'auto' }}>⌘K</span>
+          <Search size={12} className="text-[#93959D]" />
+          <span className="text-[11px] text-[#93959D]">Search</span>
+          <span className="flex items-center gap-0.5 text-[9px] text-[#5A5C64] bg-white/[0.04] border border-white/10 rounded px-1.5 py-0.5">
+            <Command size={9} /> K
+          </span>
         </button>
       </div>
 
-      {/* ── Center: graph stats ── */}
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '10px',
-          padding: '4px 14px',
-          borderRadius: '12px',
-          background: 'rgba(255,255,255,0.03)',
-          border: '1px solid rgba(255,255,255,0.06)',
-          flexShrink: 0,
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-          <div
-            style={{
-              width: '6px',
-              height: '6px',
-              borderRadius: '50%',
-              background: isRunning ? '#60a5fa' : '#4ade80',
-              boxShadow: isRunning ? '0 0 8px rgba(96,165,250,0.6)' : '0 0 8px rgba(74,222,128,0.4)',
-              flexShrink: 0,
-              animation: isRunning ? 'pulse 1.5s ease-in-out infinite' : 'none',
-            }}
-          />
-          <span style={{ fontSize: '11px', fontWeight: 600, color: isRunning ? '#93c5fd' : 'rgba(255,255,255,0.5)', whiteSpace: 'nowrap' }}>
+      {/* ── Center Section: Live Status & Telemetry Badge ── */}
+      <div className="hidden lg:flex items-center gap-3 px-3 py-1 rounded-full bg-white/[0.03] border border-white/[0.07] shrink-0 text-[11px] font-mono">
+        <div className="flex items-center gap-1.5">
+          <CircleDot size={10} className={isRunning ? 'text-[#8B7CF6] animate-pulse' : 'text-[#3ECF8E]'} />
+          <span className={`font-semibold tracking-wider ${isRunning ? 'text-[#8B7CF6]' : 'text-[#3ECF8E]'}`}>
             {isRunning ? 'RUNNING' : 'IDLE'}
           </span>
         </div>
-        
-        <div style={{ width: '1px', height: '10px', background: 'rgba(255,255,255,0.1)' }} />
-        
-        <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.3)', whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>
+
+        <div className="w-px h-3 bg-white/10" />
+
+        <span className="text-[#93959D]">
           {nodes?.length ?? 0} nodes · {edges?.length ?? 0} edges
         </span>
 
-        <div style={{ width: '1px', height: '10px', background: 'rgba(255,255,255,0.1)' }} />
+        <div className="w-px h-3 bg-white/10" />
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-          <span style={{ fontSize: '11px', fontWeight: 700, color: remaining < 10 ? '#f87171' : '#ffffff' }}>{remaining}</span>
-          <span style={{ fontSize: '9px', fontWeight: 800, color: 'rgba(255,255,255,0.15)', textTransform: 'uppercase' }}>Credits</span>
+        <div className="flex items-center gap-1">
+          <span className={`font-bold ${remaining < 10 ? 'text-[#E24B4A]' : 'text-[#3ECF8E]'}`}>
+            {remaining}
+          </span>
+          <span className="text-[9px] uppercase tracking-wider text-[#5A5C64]">Credits</span>
         </div>
       </div>
 
-      {/* ── Right: actions ── */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
-        {/* Reset button */}
+      {/* ── Right Section: Action Controls & Primary Run CTA ── */}
+      <div className="flex items-center gap-1.5 shrink-0">
+        {/* Reset */}
         <button
+          type="button"
           onClick={resetWorkflow}
           disabled={isRunning}
-          style={{
-            fontSize: '12px',
-            fontWeight: 500,
-            color: isRunning ? 'rgba(255,255,255,0.1)' : 'rgba(255,255,255,0.4)',
-            background: 'rgba(255,255,255,0.03)',
-            border: '1px solid rgba(255,255,255,0.06)',
-            cursor: isRunning ? 'not-allowed' : 'pointer',
-            padding: '5px 12px',
-            borderRadius: '8px',
-            transition: 'all 0.15s ease',
-          }}
-          onMouseEnter={(e) => {
-            if (isRunning) return
-            const el = e.currentTarget as HTMLElement
-            el.style.background = 'rgba(255,255,255,0.06)'
-            el.style.borderColor = 'rgba(255,255,255,0.12)'
-            el.style.color = 'rgba(255,255,255,0.8)'
-          }}
-          onMouseLeave={(e) => {
-            if (isRunning) return
-            const el = e.currentTarget as HTMLElement
-            el.style.background = 'rgba(255,255,255,0.03)'
-            el.style.borderColor = 'rgba(255,255,255,0.06)'
-            el.style.color = 'rgba(255,255,255,0.4)'
-          }}
+          title="Reset Execution State"
+          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-medium bg-white/[0.03] border border-white/10 hover:bg-white/[0.07] hover:border-white/20 text-[#93959D] hover:text-white disabled:opacity-40 disabled:cursor-not-allowed transition-all cursor-pointer"
         >
-          Reset
+          <RotateCcw size={13} />
+          <span className="hidden xl:inline">Reset</span>
         </button>
 
-        {/* Save button */}
+        {/* Save */}
         <button
+          type="button"
           onClick={handleSave}
           disabled={saveStatus === 'saving'}
-          style={{
-            fontSize: '12px',
-            fontWeight: 500,
-            color: saveStatus === 'saved' ? '#34d399' : saveStatus === 'error' ? '#f87171' : 'rgba(255,255,255,0.4)',
-            background: saveStatus === 'saved' ? 'rgba(52,211,153,0.08)' : saveStatus === 'error' ? 'rgba(248,113,113,0.08)' : 'rgba(255,255,255,0.03)',
-            border: '1px solid',
-            borderColor: saveStatus === 'saved' ? 'rgba(52,211,153,0.2)' : saveStatus === 'error' ? 'rgba(248,113,113,0.2)' : 'rgba(255,255,255,0.06)',
-            cursor: saveStatus === 'saving' ? 'not-allowed' : 'pointer',
-            padding: '5px 12px',
-            borderRadius: '8px',
-            transition: 'all 0.2s ease',
-          }}
-          onMouseEnter={(e) => {
-            if (saveStatus === 'saving') return
-            const el = e.currentTarget as HTMLElement
-            el.style.background = 'rgba(255,255,255,0.06)'
-            el.style.borderColor = 'rgba(255,255,255,0.12)'
-            el.style.color = 'rgba(255,255,255,0.8)'
-          }}
-          onMouseLeave={(e) => {
-            if (saveStatus === 'saving') return
-            const el = e.currentTarget as HTMLElement
-            el.style.background = saveStatus === 'saved' ? 'rgba(52,211,153,0.08)' : saveStatus === 'error' ? 'rgba(248,113,113,0.08)' : 'rgba(255,255,255,0.03)'
-            el.style.borderColor = saveStatus === 'saved' ? 'rgba(52,211,153,0.2)' : saveStatus === 'error' ? 'rgba(248,113,113,0.2)' : 'rgba(255,255,255,0.06)'
-            el.style.color = saveStatus === 'saved' ? '#34d399' : saveStatus === 'error' ? '#f87171' : 'rgba(255,255,255,0.4)'
-          }}
+          title="Save Workflow"
+          className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-medium border transition-all cursor-pointer ${
+            saveStatus === 'saved'
+              ? 'bg-[#3ECF8E]/10 border-[#3ECF8E]/30 text-[#3ECF8E]'
+              : saveStatus === 'error'
+              ? 'bg-[#E24B4A]/10 border-[#E24B4A]/30 text-[#E24B4A]'
+              : 'bg-white/[0.03] border-white/10 hover:bg-white/[0.07] hover:border-white/20 text-[#93959D] hover:text-white'
+          }`}
         >
-          {saveStatus === 'saving' ? 'Saving…' : saveStatus === 'saved' ? 'Saved' : saveStatus === 'error' ? 'Error' : 'Save'}
+          {saveStatus === 'saving' ? (
+            <Loader2 size={13} className="animate-spin text-[#3ECF8E]" />
+          ) : saveStatus === 'saved' ? (
+            <Check size={13} />
+          ) : saveStatus === 'error' ? (
+            <AlertCircle size={13} />
+          ) : (
+            <Save size={13} />
+          )}
+          <span className="hidden xl:inline">
+            {saveStatus === 'saving' ? 'Saving…' : saveStatus === 'saved' ? 'Saved' : saveStatus === 'error' ? 'Error' : 'Save'}
+          </span>
         </button>
 
-        {/* History button */}
+        {/* History */}
         <button
+          type="button"
           onClick={onHistoryClick}
-          style={{
-            fontSize: '12px',
-            fontWeight: 500,
-            color: 'rgba(255,255,255,0.4)',
-            background: 'rgba(255,255,255,0.03)',
-            border: '1px solid rgba(255,255,255,0.06)',
-            cursor: 'pointer',
-            padding: '5px 12px',
-            borderRadius: '8px',
-            transition: 'all 0.15s ease',
-          }}
-          onMouseEnter={(e) => {
-            const el = e.currentTarget as HTMLElement
-            el.style.background = 'rgba(255,255,255,0.06)'
-            el.style.borderColor = 'rgba(255,255,255,0.12)'
-            el.style.color = 'rgba(255,255,255,0.8)'
-          }}
-          onMouseLeave={(e) => {
-            const el = e.currentTarget as HTMLElement
-            el.style.background = 'rgba(255,255,255,0.03)'
-            el.style.borderColor = 'rgba(255,255,255,0.06)'
-            el.style.color = 'rgba(255,255,255,0.4)'
-          }}
+          title="Execution History"
+          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-medium bg-white/[0.03] border border-white/10 hover:bg-white/[0.07] hover:border-white/20 text-[#93959D] hover:text-white transition-all cursor-pointer"
         >
-          History
+          <Clock size={13} />
+          <span className="hidden xl:inline">History</span>
         </button>
 
-        {/* Log toggle button */}
+        {/* Console Log */}
         <button
+          type="button"
           onClick={onLogClick}
-          style={{
-            fontSize: '12px',
-            fontWeight: 500,
-            color: logOpen ? '#ffffff' : 'rgba(255,255,255,0.4)',
-            background: logOpen ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.03)',
-            border: '1px solid',
-            borderColor: logOpen ? 'rgba(255,255,255,0.25)' : 'rgba(255,255,255,0.06)',
-            cursor: 'pointer',
-            padding: '5px 12px',
-            borderRadius: '8px',
-            transition: 'all 0.15s ease',
-          }}
-          onMouseEnter={(e) => {
-            const el = e.currentTarget as HTMLElement
-            if (!logOpen) {
-              el.style.background = 'rgba(255,255,255,0.06)'
-              el.style.borderColor = 'rgba(255,255,255,0.12)'
-              el.style.color = 'rgba(255,255,255,0.8)'
-            }
-          }}
-          onMouseLeave={(e) => {
-            const el = e.currentTarget as HTMLElement
-            if (!logOpen) {
-              el.style.background = 'rgba(255,255,255,0.03)'
-              el.style.borderColor = 'rgba(255,255,255,0.06)'
-              el.style.color = 'rgba(255,255,255,0.4)'
-            }
-          }}
+          title="Console Execution Logs"
+          className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-medium border transition-all cursor-pointer ${
+            logOpen
+              ? 'bg-[#3ECF8E]/10 border-[#3ECF8E]/40 text-[#3ECF8E]'
+              : 'bg-white/[0.03] border-white/10 hover:bg-white/[0.07] hover:border-white/20 text-[#93959D] hover:text-white'
+          }`}
         >
-          Log
+          <Terminal size={13} />
+          <span className="hidden xl:inline">Console</span>
         </button>
 
-        {/* Benchmark button */}
+        {/* Load Test / Benchmark */}
         <button
+          type="button"
           onClick={onBenchmarkClick}
-          style={{
-            fontSize: '12px',
-            fontWeight: 500,
-            color: 'rgba(255,255,255,0.4)',
-            background: 'rgba(255,255,255,0.03)',
-            border: '1px solid rgba(255,255,255,0.06)',
-            cursor: 'pointer',
-            padding: '5px 12px',
-            borderRadius: '8px',
-            transition: 'all 0.15s ease',
-          }}
-          onMouseEnter={(e) => {
-            const el = e.currentTarget as HTMLElement
-            el.style.background = 'rgba(255,255,255,0.08)'
-            el.style.borderColor = 'rgba(255,255,255,0.2)'
-            el.style.color = '#ffffff'
-          }}
-          onMouseLeave={(e) => {
-            const el = e.currentTarget as HTMLElement
-            el.style.background = 'rgba(255,255,255,0.03)'
-            el.style.borderColor = 'rgba(255,255,255,0.06)'
-            el.style.color = 'rgba(255,255,255,0.4)'
-          }}
+          title="Load Test Benchmark"
+          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-medium bg-white/[0.03] border border-white/10 hover:bg-white/[0.07] hover:border-white/20 text-[#93959D] hover:text-white transition-all cursor-pointer"
         >
-          Load Test
+          <Zap size={13} className="text-[#3ECF8E]" />
+          <span className="hidden xl:inline">Benchmark</span>
         </button>
 
+        <div className="w-px h-4 bg-white/10 mx-0.5" />
 
-
-        {/* Divider */}
-        <div style={{ width: '1px', height: '16px', background: 'rgba(255,255,255,0.09)' }} />
-
-        {/* Run button */}
+        {/* Primary Run Workflow Button */}
         <button
+          type="button"
           onClick={runWorkflow}
           disabled={isRunning}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '7px',
-            background: isRunning ? 'rgba(255,255,255,0.7)' : '#ffffff',
-            border: 'none',
-            borderRadius: '7px',
-            padding: '5px 14px',
-            cursor: isRunning ? 'not-allowed' : 'pointer',
-            color: '#000000',
-            fontSize: '12px',
-            fontWeight: 600,
-            letterSpacing: '0.01em',
-            boxShadow: '0 4px 12px rgba(255,255,255,0.15)',
-            transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
-            opacity: isRunning ? 0.5 : 1,
-          }}
-          onMouseEnter={(e) => {
-            if (isRunning) return
-            const el = e.currentTarget as HTMLElement
-            el.style.background = '#f4f4f5'
-            el.style.boxShadow = '0 6px 20px rgba(255,255,255,0.25)'
-            el.style.transform = 'translateY(-1px) scale(1.02)'
-          }}
-          onMouseLeave={(e) => {
-            if (isRunning) return
-            const el = e.currentTarget as HTMLElement
-            el.style.background = '#ffffff'
-            el.style.boxShadow = '0 4px 12px rgba(255,255,255,0.15)'
-            el.style.transform = 'translateY(0) scale(1)'
-          }}
+          className="flex items-center gap-2 px-4 py-1.5 rounded-full bg-[#3ECF8E] text-[#06110C] hover:bg-[#5BDA9F] font-semibold text-xs transition-all active:scale-[0.97] shadow-none hover:shadow-[0_0_0_1px_rgba(62,207,142,0.4),0_8px_20px_-4px_rgba(62,207,142,0.5)] disabled:opacity-60 disabled:cursor-not-allowed shrink-0 cursor-pointer"
         >
           {isRunning ? (
-            <>
-              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" style={{ animation: 'spin 1s linear infinite' }}>
-                <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" opacity="0.25" />
-                <path fill="currentColor" d="M4 12a8 8 0 018-8v8z" opacity="0.75" />
-              </svg>
-              Running
-            </>
+            <Loader2 size={13} className="animate-spin" />
           ) : (
-            <>
-              <svg width="10" height="10" viewBox="0 0 10 12" fill="currentColor">
-                <path d="M0 0L10 6L0 12V0Z" />
-              </svg>
-              Run Workflow
-            </>
+            <Play size={12} className="fill-current" />
           )}
+          <span>{isRunning ? 'Running…' : 'Run Workflow'}</span>
         </button>
       </div>
-
-      {/* Inline keyframes for pulse and spin animations */}
-      <style>{`
-        @keyframes pulse {
-          0%, 100% { opacity: 1; }
-          50% { opacity: 0.4; }
-        }
-        @keyframes spin {
-          from { transform: rotate(0deg); }
-          to { transform: rotate(360deg); }
-        }
-      `}</style>
-    </div>
+    </header>
   )
 }

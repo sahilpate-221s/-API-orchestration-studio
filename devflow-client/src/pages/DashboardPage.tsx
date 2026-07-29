@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import api from '../services/api'
 import { useAuthStore } from '../store/authStore'
 import type { FlowWorkflow } from '../types'
+import Footer from '../components/ui/Footer'
 
 type Props = { onOpenWorkflow: (id: string, name: string, workspace: string, nodes: any[], edges: any[]) => void }
 
@@ -25,41 +26,30 @@ function dedupeWorkspaceEntries(rows: WorkspaceEntry[]): WorkspaceEntry[] {
 }
 
 const CSS = `
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Inter+Tight:wght@700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+
 @keyframes spin { to { transform: rotate(360deg) } }
 @keyframes fadeUp { from { opacity: 0; transform: translateY(10px) } to { opacity: 1; transform: none } }
-@keyframes ink-breathe {
-  0%, 100% { opacity: 0.72; transform: scale(1) translate(0, 0); }
-  50% { opacity: 0.96; transform: scale(1.04) translate(1%, -0.6%); }
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
 }
-@keyframes orb-a {
+@keyframes drift-a {
   0%, 100% { transform: translate(0%, 0%) scale(1); }
-  33% { transform: translate(7%, -5%) scale(1.06); }
-  66% { transform: translate(-4%, 3%) scale(0.98); }
+  50% { transform: translate(4%, -3%) scale(1.05); }
 }
-@keyframes orb-b {
+@keyframes drift-b {
   0%, 100% { transform: translate(0%, 0%) scale(1); }
-  40% { transform: translate(-9%, 6%) scale(1.07); }
-  70% { transform: translate(5%, -7%) scale(1); }
+  50% { transform: translate(-4%, 3%) scale(1.05); }
 }
-@keyframes orb-c {
-  0%, 100% { transform: translate(-50%, -50%) translate(0, 0) scale(1); }
-  50% { transform: translate(-50%, -50%) translate(3%, 4%) scale(1.1); }
-}
-@keyframes glint-orbit {
-  0% { transform: rotate(0turn) scale(1); opacity: 0.5; }
-  50% { opacity: 0.88; }
-  100% { transform: rotate(1turn) scale(1.05); opacity: 0.5; }
-}
-@keyframes sheen-slide {
-  0% { transform: translateX(-55%) skewX(-12deg); opacity: 0; }
-  12% { opacity: 1; }
-  55% { opacity: 1; }
-  70% { transform: translateX(55%) skewX(-12deg); opacity: 0; }
-  100% { transform: translateX(55%) skewX(-12deg); opacity: 0; }
-}
-@keyframes pulse-edge {
-  0%, 100% { opacity: 0.34; }
-  50% { opacity: 0.62; }
+
+.db-shell {
+  min-height: 100vh;
+  background: #0B0C0E;
+  color: #F2F3F5;
+  font-family: 'Inter', system-ui, sans-serif;
+  position: relative;
+  overflow-x: hidden;
 }
 
 .db-bg-layer {
@@ -70,243 +60,69 @@ const CSS = `
   overflow: hidden;
 }
 
-.db-shell {
-  min-height: 100vh;
-  background:
-    radial-gradient(ellipse 110% 72% at 50% -8%, #111111 0%, transparent 58%),
-    radial-gradient(ellipse 90% 55% at 108% 28%, #0b0b0b 0%, transparent 48%),
-    radial-gradient(ellipse 75% 70% at -8% 85%, #060606 0%, transparent 52%),
-    linear-gradient(168deg, #000000 0%, #050505 38%, #020202 72%, #0a0a0a 100%);
-  color: #ffffff;
-  font-family: Inter, system-ui, sans-serif;
-  position: relative;
-  overflow: hidden;
+.db-bg-dots {
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(rgba(255,255,255,0.10) 1px, transparent 1px);
+  background-size: 26px 26px;
+  mask-image: radial-gradient(ellipse 80% 55% at 50% 0%, black 30%, transparent 85%);
+  -webkit-mask-image: radial-gradient(ellipse 80% 55% at 50% 0%, black 30%, transparent 85%);
+  opacity: 0.6;
 }
 
-.db-bg-ink {
-  position: absolute;
-  inset: -18%;
-  background:
-    radial-gradient(ellipse 58% 48% at 22% 32%, #141414 0%, transparent 58%),
-    radial-gradient(ellipse 52% 42% at 82% 24%, #0a0a0a 0%, transparent 55%),
-    radial-gradient(ellipse 48% 55% at 64% 88%, #0d0d0d 0%, transparent 50%);
-  animation: ink-breathe 22s ease-in-out infinite;
-  filter: blur(1.5px);
-}
-
-.db-bg-orb {
-  position: absolute;
-  border-radius: 50%;
-  filter: blur(80px);
-  mix-blend-mode: normal;
-  opacity: 0.55;
-  will-change: transform;
-}
 .db-bg-orb--a {
-  width: min(74vw, 640px);
-  height: min(74vw, 640px);
-  top: -14%;
-  left: -10%;
-  background: radial-gradient(circle, #1c1c1c 0%, #080808 42%, transparent 72%);
-  animation: orb-a 32s ease-in-out infinite;
-}
-.db-bg-orb--b {
-  width: min(68vw, 560px);
-  height: min(68vw, 560px);
-  bottom: -8%;
-  right: -14%;
-  background: radial-gradient(circle, #101010 0%, #030303 48%, transparent 74%);
-  animation: orb-b 36s ease-in-out infinite;
-  animation-delay: -8s;
-}
-.db-bg-orb--c {
-  width: min(52vw, 440px);
-  height: min(52vw, 440px);
-  top: 44%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  background: radial-gradient(circle, #181818 0%, #050505 50%, transparent 70%);
-  animation: orb-c 26s ease-in-out infinite;
-  animation-delay: -12s;
-}
-
-.db-bg-glint {
   position: absolute;
-  inset: -40%;
-  display: grid;
-  place-items: center;
-  opacity: 0.78;
-}
-.db-bg-glint::before {
-  content: "";
-  width: 55vmax;
-  height: 55vmax;
+  width: min(50vw, 640px);
+  height: min(50vw, 640px);
+  top: -18%;
+  left: -8%;
   border-radius: 50%;
-  background: conic-gradient(from 0deg, transparent 0deg, transparent 55deg, rgba(255,255,255,0.16) 90deg, transparent 125deg, transparent 360deg);
-  filter: blur(56px);
-  animation: glint-orbit 48s linear infinite;
+  background: radial-gradient(circle, rgba(62,207,142,0.08) 0%, transparent 70%);
+  filter: blur(60px);
+  animation: drift-a 30s ease-in-out infinite;
 }
 
-.db-bg-sheen {
+.db-bg-orb--b {
   position: absolute;
-  inset: 0;
-  overflow: hidden;
-  mask-image: radial-gradient(ellipse 85% 70% at 50% 42%, black 0%, transparent 72%);
-  -webkit-mask-image: radial-gradient(ellipse 85% 70% at 50% 42%, black 0%, transparent 72%);
-}
-.db-bg-sheen::after {
-  content: "";
-  position: absolute;
-  top: 18%;
-  left: 50%;
-  width: 45%;
-  height: 140%;
-  margin-left: -22%;
-  background: linear-gradient(
-    105deg,
-    transparent 0%,
-    rgba(255,255,255,0.1) 42%,
-    rgba(255,255,255,0.16) 50%,
-    rgba(255,255,255,0.1) 58%,
-    transparent 100%
-  );
-  filter: blur(1px);
-  animation: sheen-slide 11s ease-in-out infinite;
-  animation-delay: 1.5s;
-}
-
-.db-bg-vignette {
-  position: absolute;
-  inset: 0;
-  box-shadow: inset 0 0 120px rgba(0,0,0,0.68), inset 0 0 280px rgba(0,0,0,0.48);
-  animation: pulse-edge 14s ease-in-out infinite;
-  pointer-events: none;
-}
-
-.db-bg-noise {
-  position: absolute;
-  inset: 0;
-  opacity: 0.13;
-  mix-blend-mode: overlay;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='256' height='256'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-  background-size: 180px 180px;
+  width: min(42vw, 560px);
+  height: min(42vw, 560px);
+  bottom: -14%;
+  right: -10%;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(139,124,246,0.06) 0%, transparent 70%);
+  filter: blur(60px);
+  animation: drift-b 34s ease-in-out infinite;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .db-bg-layer .db-bg-ink,
-  .db-bg-layer .db-bg-orb,
-  .db-bg-layer .db-bg-glint::before,
-  .db-bg-layer .db-bg-sheen::after,
-  .db-bg-layer .db-bg-vignette,
-  .db-topbar-bg .db-bg-ink,
-  .db-topbar-bg .db-bg-orb,
-  .db-topbar-bg .db-bg-glint::before,
-  .db-topbar-bg .db-bg-sheen::after,
-  .db-topbar-bg .db-bg-vignette {
-    animation: none !important;
-  }
-  .db-bg-layer .db-bg-ink,
-  .db-topbar-bg .db-bg-ink { opacity: 0.85; transform: none; }
-  .db-bg-layer .db-bg-orb { opacity: 0.28; }
-  .db-topbar-bg .db-bg-orb { opacity: 0.28; }
-  .db-bg-layer .db-bg-orb--c,
-  .db-topbar-bg .db-bg-orb--c { transform: translate(-50%, -50%); }
-  .db-bg-layer .db-bg-glint::before,
-  .db-topbar-bg .db-bg-glint::before { transform: none; opacity: 0.48; }
-  .db-bg-layer .db-bg-sheen::after,
-  .db-topbar-bg .db-bg-sheen::after { transform: none; opacity: 0; }
-  .db-bg-layer .db-bg-vignette,
-  .db-topbar-bg .db-bg-vignette { opacity: 0.48; }
+  .db-bg-orb--a, .db-bg-orb--b { animation: none; }
 }
 
-.db-topbar {
+.db-topbar-wrap {
   position: sticky;
   top: 0;
   z-index: 50;
-  height: 64px;
-  border-bottom: 1px solid rgba(255,255,255,0.08);
-  background: rgba(5, 5, 5, 0.62);
-  backdrop-filter: blur(12px);
+  display: flex;
+  justify-content: center;
+  padding: 16px 16px 0;
+}
+
+.db-topbar {
+  width: 100%;
+  max-width: 1320px;
+  height: 60px;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,0.08);
+  background: rgba(11,12,14,0.72);
+  backdrop-filter: blur(20px);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 24px;
-  overflow: hidden;
-}
-
-.db-topbar-bg {
-  position: absolute;
-  inset: 0;
-  z-index: 0;
-  pointer-events: none;
-  overflow: hidden;
-}
-
-.db-topbar-bg .db-bg-ink {
-  inset: -35%;
-  filter: blur(1px);
-}
-
-.db-topbar-bg .db-bg-orb {
-  filter: blur(38px);
-  opacity: 0.62;
-}
-
-.db-topbar-bg .db-bg-orb--a {
-  width: 200px;
-  height: 200px;
-  top: -55%;
-  left: -8%;
-}
-
-.db-topbar-bg .db-bg-orb--b {
-  width: 180px;
-  height: 180px;
-  bottom: -45%;
-  right: -5%;
-}
-
-.db-topbar-bg .db-bg-orb--c {
-  width: 160px;
-  height: 160px;
-  top: 50%;
-  left: 72%;
-}
-
-.db-topbar-bg .db-bg-glint {
-  inset: -25%;
-  opacity: 0.82;
-}
-
-.db-topbar-bg .db-bg-glint::before {
-  width: 22vmax;
-  height: 22vmax;
-  filter: blur(22px);
-}
-
-.db-topbar-bg .db-bg-sheen {
-  mask-image: radial-gradient(ellipse 95% 120% at 50% 50%, black 0%, transparent 78%);
-  -webkit-mask-image: radial-gradient(ellipse 95% 120% at 50% 50%, black 0%, transparent 78%);
-}
-
-.db-topbar-bg .db-bg-sheen::after {
-  top: -20%;
-  height: 180%;
-  width: 55%;
-  margin-left: -28%;
-}
-
-.db-topbar-bg .db-bg-vignette {
-  box-shadow: inset 0 0 48px rgba(0,0,0,0.58), inset 0 0 90px rgba(0,0,0,0.38);
-}
-
-.db-topbar-bg .db-bg-noise {
-  opacity: 0.11;
+  padding: 0 10px 0 16px;
+  box-shadow: 0 16px 40px rgba(0,0,0,0.45);
 }
 
 .db-topbar-inner {
-  position: relative;
-  z-index: 1;
   display: grid;
   grid-template-columns: minmax(0, auto) minmax(0, 1fr) minmax(0, auto);
   align-items: center;
@@ -320,44 +136,44 @@ const CSS = `
   align-items: center;
   justify-content: center;
   flex-wrap: wrap;
-  gap: 4px 8px;
+  gap: 2px;
   min-width: 0;
 }
 
 .db-nav-link {
-  color: rgba(255, 255, 255, 0.52);
+  color: #93959D;
   font-size: 13px;
-  font-weight: 650;
+  font-weight: 500;
   text-decoration: none;
-  padding: 8px 12px;
-  border-radius: 8px;
+  padding: 8px 14px;
+  border-radius: 999px;
   white-space: nowrap;
   transition: color 0.16s ease, background 0.16s ease;
 }
 
 .db-nav-link:hover {
-  color: #ffffff;
-  background: rgba(255, 255, 255, 0.07);
-}
-
-.db-brand, .db-user, .db-stat, .db-panel, .db-workspace-row, .db-workflow-row, .db-empty {
-  border: 1px solid rgba(255,255,255,0.06);
-  background: rgba(15, 15, 15, 0.7);
-  backdrop-filter: blur(24px);
-  box-shadow: 0 12px 36px rgba(0,0,0,0.4);
+  color: #F2F3F5;
+  background: rgba(255,255,255,0.06);
 }
 
 .db-brand {
-  width: 32px;
-  height: 32px;
-  border-radius: 9px;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  background: #131417;
+  border: 1px solid rgba(255,255,255,0.1);
   display: grid;
   place-items: center;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
   position: relative;
   overflow: hidden;
+  flex: 0 0 auto;
+}
+
+.db-brand::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at 30% 20%, rgba(62,207,142,0.25) 0%, transparent 65%);
 }
 
 .db-user {
@@ -365,134 +181,192 @@ const CSS = `
   align-items: center;
   gap: 10px;
   border-radius: 999px;
-  padding: 5px 10px 5px 5px;
+  padding: 4px 6px 4px 4px;
+  border: 1px solid rgba(255,255,255,0.07);
+  background: rgba(255,255,255,0.03);
 }
 
 .db-avatar {
   width: 32px;
   height: 32px;
   border-radius: 999px;
-  background: #ffffff;
-  color: #0a0a0a;
+  background: rgba(62,207,142,0.14);
+  border: 1px solid rgba(62,207,142,0.3);
+  color: #3ECF8E;
   display: grid;
   place-items: center;
-  font-size: 12px;
-  font-weight: 800;
+  font-size: 11px;
+  font-weight: 700;
+  font-family: 'JetBrains Mono', monospace;
+  flex: 0 0 auto;
 }
 
 .db-btn {
-  border: 1px solid rgba(255,255,255,0.07);
+  border: 1px solid rgba(255,255,255,0.1);
   background: rgba(255,255,255,0.04);
-  color: rgba(255,255,255,0.78);
-  border-radius: 7px;
-  padding: 9px 12px;
+  color: #C9CBD1;
+  border-radius: 999px;
+  padding: 9px 15px;
   font: inherit;
-  font-size: 12px;
-  font-weight: 650;
+  font-size: 13px;
+  font-weight: 600;
   cursor: pointer;
-  transition: background 0.16s ease, border-color 0.16s ease, color 0.16s ease, transform 0.16s ease;
+  transition: all 0.16s ease;
+  white-space: nowrap;
 }
 
 .db-btn:hover {
   background: rgba(255,255,255,0.08);
-  border-color: rgba(255,255,255,0.14);
+  border-color: rgba(255,255,255,0.2);
   color: #ffffff;
-  transform: translateY(-1px);
 }
 
 .db-btn-primary {
-  background: #ffffff;
-  border-color: #ffffff;
-  color: #000000;
-  box-shadow: 0 8px 20px rgba(255,255,255,0.12);
+  background: #3ECF8E;
+  border-color: #3ECF8E;
+  color: #06110C;
+  box-shadow: 0 0 0 1px rgba(62,207,142,0.3), 0 8px 22px -8px rgba(62,207,142,0.5);
 }
 
-.db-btn-primary:hover {
-  background: #f4f4f5;
-  border-color: #f4f4f5;
-  color: #000000;
+.db-btn-primary:hover:not(:disabled) {
+  background: #5BDA9F;
+  border-color: #5BDA9F;
+  color: #06110C;
+}
+
+.db-btn-danger {
+  border-color: rgba(226,75,74,0.35);
+  color: #F09595;
+}
+
+.db-btn-danger:hover {
+  background: rgba(226,75,74,0.1);
+  border-color: rgba(226,75,74,0.5);
+  color: #F7C1C1;
 }
 
 .db-page {
-  max-width: 1400px;
+  max-width: 1320px;
   margin: 0 auto;
-  padding: 48px 64px 80px;
-  animation: fadeUp 0.35s ease;
+  padding: 56px 24px 80px;
+  animation: fadeUp 0.4s ease;
   position: relative;
   z-index: 5;
+}
+
+.db-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #3ECF8E;
+}
+
+.db-eyebrow-dot {
+  width: 4px;
+  height: 4px;
+  border-radius: 999px;
+  background: #3ECF8E;
 }
 
 .db-hero {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  gap: 20px;
+  gap: 24px;
   align-items: end;
-  margin-bottom: 22px;
+  margin-bottom: 40px;
 }
 
 .db-title {
-  font-size: 44px;
-  line-height: 1.06;
+  font-family: 'Inter Tight', 'Inter', sans-serif;
+  font-size: 42px;
+  line-height: 1.08;
   font-weight: 800;
   letter-spacing: -0.02em;
-  margin: 8px 0 12px;
-}
-
-.db-hero-greeting {
-  font-size: 15px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.14em;
-  color: rgba(255, 255, 255, 0.48);
+  margin: 10px 0 12px;
+  color: #F2F3F5;
 }
 
 .db-hero-lead {
-  max-width: 680px;
-  font-size: 17px;
-  line-height: 1.75;
-  color: rgba(255, 255, 255, 0.66);
+  max-width: 620px;
+  font-size: 15.5px;
+  line-height: 1.7;
+  color: #93959D;
 }
 
-.db-muted { color: rgba(255,255,255,0.45); }
-.db-soft { color: rgba(255,255,255,0.62); }
+.db-muted { color: #5A5C64; }
+.db-soft { color: #93959D; }
 
 .db-stats {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 10px;
-  margin-bottom: 18px;
+  gap: 12px;
+  margin-bottom: 16px;
 }
 
 .db-stat {
-  border-radius: 8px;
-  padding: 14px;
+  border-radius: 16px;
+  border: 1px solid rgba(255,255,255,0.07);
+  background: #0E0F12;
+  padding: 18px;
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 14px;
+  transition: border-color 0.2s ease;
+}
+
+.db-stat:hover {
+  border-color: rgba(62,207,142,0.25);
 }
 
 .db-stat-icon {
-  width: 32px;
-  height: 32px;
-  border-radius: 7px;
-  border: 1px solid rgba(255,255,255,0.08);
-  background: rgba(255,255,255,0.05);
-  color: #ffffff;
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  border: 1px solid rgba(255,255,255,0.1);
+  background: rgba(255,255,255,0.03);
+  color: #3ECF8E;
   display: grid;
   place-items: center;
   flex: 0 0 auto;
 }
 
+.db-stat-value {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1.1;
+  color: #F2F3F5;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.db-stat-label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #5A5C64;
+  margin-top: 4px;
+}
+
 .db-grid {
   display: grid;
-  grid-template-columns: 352px minmax(0, 1fr);
+  grid-template-columns: 340px minmax(0, 1fr);
   gap: 16px;
   align-items: stretch;
-  height: clamp(460px, calc(100svh - 224px), 900px);
+  height: clamp(460px, calc(100svh - 300px), 860px);
 }
 
 .db-panel {
-  border-radius: 10px;
+  border-radius: 18px;
+  border: 1px solid rgba(255,255,255,0.07);
+  background: #0E0F12;
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -509,13 +383,25 @@ const CSS = `
 }
 
 .db-panel-header {
-  min-height: 56px;
-  padding: 14px 16px;
+  min-height: 58px;
+  padding: 14px 18px;
   border-bottom: 1px solid rgba(255,255,255,0.06);
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+}
+
+.db-panel-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: #F2F3F5;
+}
+
+.db-panel-sub {
+  font-size: 11px;
+  color: #5A5C64;
+  margin-top: 2px;
 }
 
 .db-input-wrap {
@@ -526,46 +412,51 @@ const CSS = `
 
 .db-input {
   width: 100%;
-  background: rgba(0,0,0,0.24);
-  border: 1px solid rgba(255,255,255,0.07);
-  color: #ffffff;
-  border-radius: 7px;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.08);
+  color: #F2F3F5;
+  border-radius: 10px;
   outline: none;
   font: inherit;
   font-size: 13px;
   padding: 10px 12px 10px 36px;
-  transition: background 0.16s ease, border-color 0.16s ease, box-shadow 0.16s ease;
+  transition: all 0.16s ease;
+  box-sizing: border-box;
 }
 
-.db-input::placeholder { color: rgba(255,255,255,0.24); }
+.db-input::placeholder { color: #5A5C64; }
 .db-input:focus {
-  background: rgba(255,255,255,0.03);
-  border-color: rgba(255,255,255,0.3);
-  box-shadow: 0 0 0 3px rgba(255,255,255,0.05);
+  background: rgba(62,207,142,0.05);
+  border-color: rgba(62,207,142,0.5);
+  box-shadow: 0 0 0 3px rgba(62,207,142,0.1);
 }
 
 .db-workspace-list {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 4px;
   padding: 10px;
 }
 
 .db-workspace-row {
   width: 100%;
-  border-radius: 8px;
-  padding: 5px 6px 5px 8px;
+  border-radius: 12px;
+  padding: 4px 6px 4px 8px;
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
   gap: 6px;
-  transition: background 0.16s ease, border-color 0.16s ease;
+  border: 1px solid transparent;
+  transition: all 0.16s ease;
 }
 
-.db-workspace-row:hover,
+.db-workspace-row:hover {
+  background: rgba(255,255,255,0.03);
+}
+
 .db-workspace-row.is-active {
-  background: rgba(255,255,255,0.06);
-  border-color: rgba(255,255,255,0.14);
+  background: rgba(62,207,142,0.08);
+  border-color: rgba(62,207,142,0.25);
 }
 
 .db-workspace-select {
@@ -576,12 +467,30 @@ const CSS = `
   font: inherit;
   text-align: left;
   cursor: pointer;
-  padding: 8px 6px;
-  border-radius: 6px;
+  padding: 9px 6px;
+  border-radius: 8px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 10px;
+}
+
+.db-workspace-icon {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  display: grid;
+  place-items: center;
+  color: #93959D;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.07);
+  flex: 0 0 auto;
+}
+
+.db-workspace-row.is-active .db-workspace-icon {
+  color: #3ECF8E;
+  background: rgba(62,207,142,0.1);
+  border-color: rgba(62,207,142,0.3);
 }
 
 .db-workspace-actions {
@@ -592,21 +501,24 @@ const CSS = `
 }
 
 .db-count {
-  min-width: 26px;
-  height: 24px;
+  min-width: 24px;
+  height: 22px;
+  padding: 0 6px;
   border-radius: 999px;
   border: 1px solid rgba(255,255,255,0.08);
-  background: rgba(255,255,255,0.04);
+  background: rgba(255,255,255,0.03);
   display: grid;
   place-items: center;
-  color: rgba(255,255,255,0.58);
+  color: #5A5C64;
   font-size: 11px;
-  font-weight: 750;
+  font-weight: 600;
+  font-family: 'JetBrains Mono', monospace;
 }
 
 .db-workspace-row.is-active .db-count {
-  color: #ffffff;
-  border-color: rgba(255,255,255,0.2);
+  color: #3ECF8E;
+  border-color: rgba(62,207,142,0.3);
+  background: rgba(62,207,142,0.1);
 }
 
 .db-main-head {
@@ -621,12 +533,12 @@ const CSS = `
 .db-folder {
   width: 44px;
   height: 44px;
-  border-radius: 8px;
+  border-radius: 12px;
   display: grid;
   place-items: center;
-  border: 1px solid rgba(255,255,255,0.1);
-  background: rgba(255,255,255,0.05);
-  color: #ffffff;
+  border: 1px solid rgba(62,207,142,0.25);
+  background: rgba(62,207,142,0.08);
+  color: #3ECF8E;
   flex: 0 0 auto;
 }
 
@@ -634,22 +546,23 @@ const CSS = `
   padding: 10px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
 }
 
 .db-workflow-row {
-  border-radius: 8px;
-  padding: 12px;
+  border-radius: 12px;
+  padding: 12px 14px;
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 10px;
   align-items: center;
-  transition: background 0.16s ease, border-color 0.16s ease;
+  border: 1px solid transparent;
+  transition: all 0.16s ease;
 }
 
 .db-workflow-row:hover {
-  background: rgba(255,255,255,0.055);
-  border-color: rgba(255,255,255,0.12);
+  background: rgba(255,255,255,0.03);
+  border-color: rgba(255,255,255,0.09);
 }
 
 .db-row-open {
@@ -664,30 +577,31 @@ const CSS = `
 }
 
 .db-action {
-  width: 32px;
-  height: 32px;
-  border-radius: 7px;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
   border: 1px solid rgba(255,255,255,0.07);
-  background: rgba(255,255,255,0.04);
-  color: rgba(255,255,255,0.62);
+  background: rgba(255,255,255,0.03);
+  color: #93959D;
   cursor: pointer;
   display: inline-grid;
   place-items: center;
-  transition: background 0.16s ease, border-color 0.16s ease, color 0.16s ease;
+  transition: all 0.16s ease;
 }
 
 .db-action:hover {
   background: rgba(255,255,255,0.08);
-  border-color: rgba(255,255,255,0.14);
-  color: #ffffff;
+  border-color: rgba(255,255,255,0.16);
+  color: #F2F3F5;
 }
 
 .db-empty {
   margin: 10px;
-  border-radius: 8px;
-  padding: 42px 18px;
+  border-radius: 14px;
+  padding: 44px 18px;
   text-align: center;
-  background: rgba(255,255,255,0.02);
+  background: rgba(255,255,255,0.015);
+  border: 1px dashed rgba(255,255,255,0.08);
 }
 
 .db-modal {
@@ -702,34 +616,41 @@ const CSS = `
 .db-modal-backdrop {
   position: absolute;
   inset: 0;
-  background: rgba(0,0,0,0.78);
-  backdrop-filter: blur(10px);
+  background: rgba(0,0,0,0.72);
+  backdrop-filter: blur(8px);
 }
 
 .db-modal-panel {
   position: relative;
   width: min(100%, 420px);
-  border-radius: 8px;
-  border: 1px solid rgba(255,255,255,0.10);
-  background: #101010;
-  box-shadow: 0 32px 80px rgba(0,0,0,0.62);
-  padding: 22px;
+  border-radius: 16px;
+  border: 1px solid rgba(255,255,255,0.1);
+  background: #131417;
+  box-shadow: 0 32px 80px rgba(0,0,0,0.6);
+  padding: 24px;
+}
+
+.db-modal-title {
+  font-family: 'Inter Tight', 'Inter', sans-serif;
+  font-size: 19px;
+  font-weight: 700;
+  margin: 0 0 6px;
+  color: #F2F3F5;
 }
 
 @media (max-width: 860px) {
-  .db-topbar { padding: 0 14px; }
+  .db-topbar { padding: 0 8px 0 12px; }
   .db-user-text { display: none; }
   .db-topbar-inner {
     grid-template-columns: 1fr;
-    gap: 10px;
+    gap: 8px;
   }
-  .db-topbar-inner > div:first-of-type {
-    order: 1;
-  }
+  .db-topbar-inner > div:first-of-type { order: 1; }
   .db-topbar-links {
     order: 2;
     grid-column: 1 / -1;
     justify-content: flex-start;
+    display: none;
   }
   .db-topbar-inner > div:last-of-type {
     order: 3;
@@ -738,9 +659,7 @@ const CSS = `
     justify-content: flex-end;
   }
   .db-hero, .db-main-head { grid-template-columns: 1fr; }
-  .db-title { font-size: 34px; }
-  .db-hero-greeting { font-size: 14px; }
-  .db-hero-lead { font-size: 16px; }
+  .db-title { font-size: 32px; }
   .db-stats { grid-template-columns: 1fr; }
   .db-grid {
     grid-template-columns: 1fr;
@@ -952,74 +871,55 @@ export default function DashboardPage({ onOpenWorkflow }: Props) {
       <style>{CSS}</style>
 
       <div className="db-bg-layer" aria-hidden="true">
-        <div className="db-bg-ink" />
-        <div className="db-bg-orb db-bg-orb--a" />
-        <div className="db-bg-orb db-bg-orb--b" />
-        <div className="db-bg-orb db-bg-orb--c" />
-        <div className="db-bg-glint" />
-        <div className="db-bg-sheen" />
-        <div className="db-bg-noise" />
-        <div className="db-bg-vignette" />
+        <div className="db-bg-dots" />
+        <div className="db-bg-orb--a" />
+        <div className="db-bg-orb--b" />
       </div>
 
-      <nav className="db-topbar">
-        <div className="db-topbar-bg" aria-hidden="true">
-          <div className="db-bg-ink" />
-          <div className="db-bg-orb db-bg-orb--a" />
-          <div className="db-bg-orb db-bg-orb--b" />
-          <div className="db-bg-orb db-bg-orb--c" />
-          <div className="db-bg-glint" />
-          <div className="db-bg-sheen" />
-          <div className="db-bg-noise" />
-          <div className="db-bg-vignette" />
-        </div>
-
-        <div className="db-topbar-inner">
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
-            <div className="db-brand" aria-hidden="true">
-              <div style={{
-                position: 'absolute',
-                inset: 0,
-                background: 'radial-gradient(circle at 30% 30%, rgba(255,255,255,0.1) 0%, transparent 70%)',
-              }} />
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-                <path d="M12 3L4 9V21L12 15L20 21V9L12 3Z" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                <path d="M12 15V3" stroke="white" strokeWidth="2" strokeLinecap="round" opacity="0.4" />
-                <circle cx="12" cy="15" r="2" fill="white" />
-              </svg>
-            </div>
-            <div style={{ minWidth: 0 }}>
-              <div style={{ fontSize: 14, fontWeight: 800, letterSpacing: '-0.02em', color: 'rgba(255,255,255,0.96)' }}>DevFlow</div>
-              <div className="db-muted" style={{ fontSize: 11 }}>Dashboard</div>
-            </div>
-          </div>
-
-          <div className="db-topbar-links" role="navigation" aria-label="Site pages">
-            <Link className="db-nav-link" to="/">Home</Link>
-            <Link className="db-nav-link" to="/about">About</Link>
-            <Link className="db-nav-link" to="/contact">Contact</Link>
-            <Link className="db-nav-link" to="/#pricing">Pricing</Link>
-          </div>
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, justifyContent: 'flex-end' }}>
-            <div className="db-user">
-              <div className="db-avatar">{initials}</div>
-              <div className="db-user-text" style={{ minWidth: 0 }}>
-                <div style={{ fontSize: 12, fontWeight: 700 }}>{firstName}</div>
-                <div className="db-muted" style={{ fontSize: 11, maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user?.email}</div>
+      <div className="db-topbar-wrap">
+        <nav className="db-topbar">
+          <div className="db-topbar-inner">
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+              <div className="db-brand" aria-hidden="true">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" style={{ position: 'relative' }}>
+                  <path d="M12 3L4 9V21L12 15L20 21V9L12 3Z" stroke="#3ECF8E" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                  <circle cx="12" cy="15" r="1.8" fill="#3ECF8E" />
+                </svg>
+              </div>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontSize: 14, fontWeight: 700, letterSpacing: '-0.01em', color: '#F2F3F5', fontFamily: "'Inter Tight', 'Inter', sans-serif" }}>DevFlow</div>
+                <div className="db-muted" style={{ fontSize: 10.5, fontFamily: "'JetBrains Mono', monospace" }}>dashboard</div>
               </div>
             </div>
-            <button className="db-btn" onClick={clearAuth}>Sign out</button>
+
+            <div className="db-topbar-links" role="navigation" aria-label="Site pages">
+              <Link className="db-nav-link" to="/">Home</Link>
+              <Link className="db-nav-link" to="/about">About</Link>
+              <Link className="db-nav-link" to="/contact">Contact</Link>
+              <Link className="db-nav-link" to="/pricing">Pricing</Link>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'flex-end' }}>
+              <div className="db-user">
+                <div className="db-avatar">{initials}</div>
+                <div className="db-user-text" style={{ minWidth: 0 }}>
+                  <div style={{ fontSize: 12, fontWeight: 600 }}>{firstName}</div>
+                  <div className="db-muted" style={{ fontSize: 10.5, maxWidth: 170, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user?.email}</div>
+                </div>
+              </div>
+              <button className="db-btn" onClick={clearAuth}>Sign out</button>
+            </div>
           </div>
-        </div>
-      </nav>
+        </nav>
+      </div>
 
       <main className="db-page">
         <section className="db-hero">
           <div>
-            <div className="db-hero-greeting">
+            <span className="db-eyebrow">
+              <span className="db-eyebrow-dot" style={{ animation: 'pulse-dot 2s ease-in-out infinite' }} />
               {getHour()}, {firstName}
-            </div>
+            </span>
             <h1 className="db-title">Your workflow command center</h1>
             <p className="db-hero-lead">
               Browse workspaces, open active flows, and keep your API automation work organized from one focused view.
@@ -1042,8 +942,8 @@ export default function DashboardPage({ onOpenWorkflow }: Props) {
           <aside className="db-panel">
             <div className="db-panel-header">
               <div>
-                <div style={{ fontSize: 13, fontWeight: 760 }}>Workspaces</div>
-                <div className="db-muted" style={{ fontSize: 11 }}>Select a workspace</div>
+                <div className="db-panel-title">Workspaces</div>
+                <div className="db-panel-sub">Select a workspace</div>
               </div>
               <button className="db-action" onClick={() => setShowModal(true)} title="Create workspace">
                 <PlusIcon />
@@ -1051,7 +951,7 @@ export default function DashboardPage({ onOpenWorkflow }: Props) {
             </div>
 
             <div className="db-input-wrap">
-              <SearchIcon style={{ position: 'absolute', left: 24, top: '50%', transform: 'translateY(-50%)', color: 'rgba(255,255,255,0.36)' }} />
+              <SearchIcon style={{ position: 'absolute', left: 24, top: '50%', transform: 'translateY(-50%)', color: '#5A5C64' }} />
               <input
                 className="db-input"
                 value={search}
@@ -1065,7 +965,7 @@ export default function DashboardPage({ onOpenWorkflow }: Props) {
                 <LoadingState label="Loading workspaces..." />
               ) : filteredWorkspaces.length === 0 ? (
                 <div className="db-empty">
-                  <div style={{ fontWeight: 760, marginBottom: 6 }}>No workspaces found</div>
+                  <div style={{ fontWeight: 700, marginBottom: 6, color: '#F2F3F5' }}>No workspaces found</div>
                   <div className="db-muted" style={{ fontSize: 13 }}>Create a workspace to start organizing workflows.</div>
                 </div>
               ) : (
@@ -1078,9 +978,9 @@ export default function DashboardPage({ onOpenWorkflow }: Props) {
                       <div key={ws} className={`db-workspace-row${active ? ' is-active' : ''}`}>
                         <button type="button" className="db-workspace-select" onClick={() => setSelectedWs(ws)}>
                           <span style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
-                            <FolderIcon />
+                            <span className="db-workspace-icon"><FolderIcon /></span>
                             <span style={{ minWidth: 0 }}>
-                              <span style={{ display: 'block', fontSize: 13, fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ws}</span>
+                              <span style={{ display: 'block', fontSize: 13, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: '#F2F3F5' }}>{ws}</span>
                               <span className="db-muted" style={{ display: 'block', fontSize: 11 }}>{count} workflow{count === 1 ? '' : 's'}</span>
                             </span>
                           </span>
@@ -1121,7 +1021,7 @@ export default function DashboardPage({ onOpenWorkflow }: Props) {
                   <FolderIcon />
                 </div>
                 <div style={{ minWidth: 0 }}>
-                  <h2 style={{ margin: 0, fontSize: 22, lineHeight: 1.2, fontWeight: 800, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  <h2 style={{ margin: 0, fontSize: 20, lineHeight: 1.2, fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontFamily: "'Inter Tight', 'Inter', sans-serif", color: '#F2F3F5' }}>
                     {selectedWs || 'No workspace selected'}
                   </h2>
                   <div className="db-muted" style={{ fontSize: 12, marginTop: 5 }}>
@@ -1149,7 +1049,7 @@ export default function DashboardPage({ onOpenWorkflow }: Props) {
                   <div className="db-folder" style={{ margin: '0 auto 14px' }}>
                     <BoltIcon />
                   </div>
-                  <div style={{ fontSize: 16, fontWeight: 800, marginBottom: 6 }}>No workflows yet</div>
+                  <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 6, color: '#F2F3F5' }}>No workflows yet</div>
                   <div className="db-muted" style={{ fontSize: 13, marginBottom: 18 }}>Create the first workflow inside this workspace.</div>
                   <button className="db-btn db-btn-primary" onClick={() => createWorkflow(selectedWs)} style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
                     <PlusIcon />
@@ -1170,7 +1070,7 @@ export default function DashboardPage({ onOpenWorkflow }: Props) {
                 </div>
               ) : (
                 <div className="db-empty">
-                  <div style={{ fontWeight: 760, marginBottom: 6 }}>Select a workspace</div>
+                  <div style={{ fontWeight: 700, marginBottom: 6, color: '#F2F3F5' }}>Select a workspace</div>
                   <div className="db-muted" style={{ fontSize: 13 }}>Your workflows will appear here.</div>
                 </div>
               )}
@@ -1183,7 +1083,7 @@ export default function DashboardPage({ onOpenWorkflow }: Props) {
         <div className="db-modal">
           <div className="db-modal-backdrop" onClick={() => setShowModal(false)} />
           <div className="db-modal-panel">
-            <h2 style={{ fontSize: 20, fontWeight: 800, margin: '0 0 6px' }}>Create workspace</h2>
+            <h2 className="db-modal-title">Create workspace</h2>
             <p className="db-muted" style={{ fontSize: 13, marginBottom: 18 }}>Group related workflows under a permanent workspace.</p>
             <input
               autoFocus
@@ -1206,7 +1106,7 @@ export default function DashboardPage({ onOpenWorkflow }: Props) {
         <div className="db-modal">
           <div className="db-modal-backdrop" onClick={() => setRenameModal(null)} />
           <div className="db-modal-panel">
-            <h2 style={{ fontSize: 20, fontWeight: 800, margin: '0 0 6px' }}>Rename workspace</h2>
+            <h2 className="db-modal-title">Rename workspace</h2>
             <p className="db-muted" style={{ fontSize: 13, marginBottom: 18 }}>All workflows in this workspace move to the new name.</p>
             <input
               autoFocus
@@ -1229,17 +1129,17 @@ export default function DashboardPage({ onOpenWorkflow }: Props) {
         <div className="db-modal">
           <div className="db-modal-backdrop" onClick={() => setDeleteModal(null)} />
           <div className="db-modal-panel">
-            <h2 style={{ fontSize: 20, fontWeight: 800, margin: '0 0 6px' }}>Delete workspace</h2>
+            <h2 className="db-modal-title">Delete workspace</h2>
             <p className="db-muted" style={{ fontSize: 13, marginBottom: 18 }}>
-              <strong style={{ color: 'rgba(255,255,255,0.88)' }}>{deleteModal.name}</strong>
-              {' '}will be removed. Workflows in it are moved to <strong style={{ color: 'rgba(255,255,255,0.88)' }}>My Workspace</strong>.
+              <strong style={{ color: '#F2F3F5' }}>{deleteModal.name}</strong>
+              {' '}will be removed. Workflows in it are moved to <strong style={{ color: '#F2F3F5' }}>My Workspace</strong>.
             </p>
             <div style={{ display: 'flex', gap: 8 }}>
               <button className="db-btn" onClick={() => setDeleteModal(null)} style={{ flex: 1 }}>Cancel</button>
               <button
-                className="db-btn"
+                className="db-btn db-btn-danger"
                 onClick={() => void handleConfirmDeleteWorkspace()}
-                style={{ flex: 1.4, borderColor: 'rgba(248,113,113,0.45)', color: '#fecaca' }}
+                style={{ flex: 1.4 }}
               >
                 Delete workspace
               </button>
@@ -1247,6 +1147,8 @@ export default function DashboardPage({ onOpenWorkflow }: Props) {
           </div>
         </div>
       )}
+
+      <Footer />
     </div>
   )
 }
@@ -1267,8 +1169,8 @@ function Stat({ icon, label, value }: { icon: React.ReactNode; label: string; va
     <div className="db-stat">
       <div className="db-stat-icon">{icon}</div>
       <div style={{ minWidth: 0 }}>
-        <div style={{ fontSize: 20, fontWeight: 800, lineHeight: 1.1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{value}</div>
-        <div className="db-muted" style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.10em', textTransform: 'uppercase', marginTop: 4 }}>{label}</div>
+        <div className="db-stat-value">{value}</div>
+        <div className="db-stat-label">{label}</div>
       </div>
     </div>
   )
@@ -1277,8 +1179,8 @@ function Stat({ icon, label, value }: { icon: React.ReactNode; label: string; va
 function LoadingState({ label }: { label: string }) {
   return (
     <div style={{ display: 'grid', placeItems: 'center', padding: 48, gap: 12 }}>
-      <div style={{ width: 28, height: 28, borderRadius: '50%', border: '3px solid rgba(255,255,255,0.10)', borderTopColor: '#ffffff', animation: 'spin 0.8s linear infinite' }} />
-      <div className="db-muted" style={{ fontSize: 13 }}>{label}</div>
+      <div style={{ width: 26, height: 26, borderRadius: '50%', border: '3px solid rgba(255,255,255,0.10)', borderTopColor: '#3ECF8E', animation: 'spin 0.8s linear infinite' }} />
+      <div className="db-muted" style={{ fontSize: 13, fontFamily: "'JetBrains Mono', monospace" }}>{label}</div>
     </div>
   )
 }
@@ -1327,10 +1229,10 @@ function WorkflowRow({ wf, onOpen, onRenameWorkflow, onDeleteWorkflow }: {
     <div className="db-workflow-row">
       <button className="db-row-open" onClick={onOpen}>
         <span style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
-          <span style={{ width: 8, height: 8, borderRadius: 999, background: '#4ade80', boxShadow: '0 0 10px rgba(74,222,128,0.55)', flex: '0 0 auto' }} />
+          <span style={{ width: 7, height: 7, borderRadius: 999, background: '#3ECF8E', boxShadow: '0 0 8px rgba(62,207,142,0.6)', flex: '0 0 auto' }} />
           <span style={{ minWidth: 0 }}>
-            <span style={{ display: 'block', fontSize: 14, fontWeight: 740, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{wf.name}</span>
-            <span className="db-muted" style={{ display: 'block', fontSize: 12, marginTop: 4 }}>
+            <span style={{ display: 'block', fontSize: 14, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: '#F2F3F5' }}>{wf.name}</span>
+            <span className="db-muted" style={{ display: 'block', fontSize: 11.5, marginTop: 3, fontFamily: "'JetBrains Mono', monospace" }}>
               Updated {wf.updatedAt ? new Date(wf.updatedAt).toLocaleDateString() : 'recently'}
             </span>
           </span>
@@ -1340,9 +1242,10 @@ function WorkflowRow({ wf, onOpen, onRenameWorkflow, onDeleteWorkflow }: {
         <button className="db-action" type="button" onClick={() => setIsEditing(true)} title="Rename workflow">
           <EditIcon />
         </button>
-        <button className="db-action" type="button" onClick={() => onDeleteWorkflow(wf.id)} title="Delete workflow" style={{ color: '#f87171' }}>
+        <button className="db-action" type="button" onClick={() => onDeleteWorkflow(wf.id)} title="Delete workflow" style={{ color: '#E24B4A' }}>
           <TrashIcon />
         </button>
+
       </div>
     </div>
   )
@@ -1367,7 +1270,7 @@ function SearchIcon({ style }: { style?: React.CSSProperties }) {
 
 function FolderIcon() {
   return (
-    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <path d="M3 7a2 2 0 0 1 2-2h5l2 2h7a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z" />
     </svg>
   )
@@ -1375,7 +1278,7 @@ function FolderIcon() {
 
 function BoltIcon() {
   return (
-    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <path d="M13 2 4 14h7l-1 8 10-13h-7l1-7Z" />
     </svg>
   )
@@ -1383,7 +1286,7 @@ function BoltIcon() {
 
 function ClockIcon() {
   return (
-    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <circle cx="12" cy="12" r="9" />
       <path d="M12 7v5l3 2" />
     </svg>

@@ -1,204 +1,108 @@
 import { Router, Response } from 'express'
 import { authMiddleware, AuthRequest } from '../middleware/auth'
 import { v4 as uuidv4 } from 'uuid'
-import { loadTestQueue } from '../config/queue'
-import { initLoadTest, streamLoadTestStats, getLoadTestStats } from '../services/loadTestService'
+import { runLoadTest, stopLoadTest, getStats, LoadTestMode } from '../services/loadTestService'
 import Workflow from '../models/Workflow'
 import Execution from '../models/Execution'
 
 const router = Router()
 
+// ─── Start ──────────────────────────────────────────────────────────────────
 router.post('/start', authMiddleware, async (req: AuthRequest, res: Response) => {
   try {
     const {
-      workflowId,
-      targetUrl,
-      method = 'GET',
-      headers = {},
+      workflowId, targetUrl,
+      method   = 'GET',
+      headers  = {},
       body,
-      totalUsers = 1000,
-      rampUpSeconds = 30,
-      batchSize = 100,
+      mode     = 'spike' as LoadTestMode,
+      totalUsers      = 100,
+      durationSeconds = 10,
+      serverCores,
+      dbPoolLimit,
+      maxQueueBacklog,
+      serverMemoryGB,
+      networkBandwidthMbps
     } = req.body
 
-    if (!targetUrl) {
-      res.status(400).json({ message: 'targetUrl is required' })
-      return
-    }
+    if (!targetUrl) { res.status(400).json({ message: 'targetUrl is required' }); return }
 
-    // Cap at 1,000,000
-    const cappedUsers = Math.min(totalUsers, 1000000)
-    const cappedBatchSize = Math.min(batchSize, 500)
+    // Cap values to ensure high-scale parameters are clean
+    const cappedUsers = Math.max(1, Math.min(totalUsers, 1_000_000))
+    const cappedDur   = Math.max(1, Math.min(durationSeconds, 300))
 
     const loadTestId = uuidv4()
-    const userId = req.user!.id
+    const userId     = req.user!.id
 
-    // Initialize Redis counters
-    await initLoadTest(loadTestId, cappedUsers)
-
-    // Calculate number of batches
-    const totalBatches = Math.ceil(cappedUsers / cappedBatchSize)
-
-    // Enqueue all batches
-    const jobs = Array.from({ length: totalBatches }, (_, i) => ({
-      name: 'load-test-batch',
-      data: {
-        loadTestId,
-        userId,
-        workflowId: workflowId ?? '',
-        targetUrl,
-        method,
-        headers,
-        body,
-        batchIndex: i,
-        batchSize: Math.min(
-          cappedBatchSize,
-          cappedUsers - i * cappedBatchSize
-        ),
-        totalUsers: cappedUsers,
-        rampUpSeconds,
-      },
-    }))
-
-    await loadTestQueue.addBulk(jobs)
-
-    // Start streaming stats to frontend
-    streamLoadTestStats(loadTestId, userId, cappedUsers)
-
-    res.json({
-      loadTestId,
+    runLoadTest({
+      loadTestId, userId, targetUrl, method, headers, body,
+      mode: mode as LoadTestMode,
       totalUsers: cappedUsers,
-      totalBatches,
-      batchSize: cappedBatchSize,
-      rampUpSeconds,
-      message: 'Load test started',
-    })
+      durationSeconds: cappedDur,
+      serverCores: serverCores ? Math.max(1, Math.min(Number(serverCores), 32)) : undefined,
+      dbPoolLimit: dbPoolLimit ? Math.max(1, Math.min(Number(dbPoolLimit), 10000)) : undefined,
+      maxQueueBacklog: maxQueueBacklog ? Math.max(10, Math.min(Number(maxQueueBacklog), 100000)) : undefined,
+      serverMemoryGB: serverMemoryGB ? Math.max(0.1, Math.min(Number(serverMemoryGB), 128)) : undefined,
+      networkBandwidthMbps: networkBandwidthMbps ? Math.max(10, Math.min(Number(networkBandwidthMbps), 100000)) : undefined,
+    }).catch(err => console.error('[LoadTest] fatal:', err))
 
+    res.json({ loadTestId, mode, totalUsers: cappedUsers, durationSeconds: cappedDur, message: 'Started' })
   } catch (err) {
     console.error('Load test start error:', err)
-    res.status(500).json({ message: 'Failed to start load test', error: err })
+    res.status(500).json({ message: 'Failed to start' })
   }
 })
 
+// ─── Stats ──────────────────────────────────────────────────────────────────
 router.get('/stats/:loadTestId', authMiddleware, async (req: AuthRequest, res: Response) => {
-  try {
-    const stats = await getLoadTestStats(req.params.loadTestId)
-    res.json(stats)
-  } catch (err) {
-    res.status(500).json({ message: 'Failed to get stats', error: err })
-  }
+  try { res.json(await getStats(req.params.loadTestId)) }
+  catch { res.status(500).json({ message: 'Failed to get stats' }) }
 })
 
+// ─── Stop ───────────────────────────────────────────────────────────────────
 router.post('/stop/:loadTestId', authMiddleware, async (req: AuthRequest, res: Response) => {
-  try {
-    // Drain the queue for this load test
-    const jobs = await loadTestQueue.getJobs(['waiting', 'delayed'])
-    const toRemove = jobs.filter(
-      (j) => j.data.loadTestId === req.params.loadTestId
-    )
-    await Promise.all(toRemove.map((j) => j.remove()))
-
-    res.json({ message: 'Load test stopped', removed: toRemove.length })
-  } catch (err) {
-    res.status(500).json({ message: 'Failed to stop load test', error: err })
-  }
+  try { stopLoadTest(req.params.loadTestId); res.json({ message: 'Stopping' }) }
+  catch { res.status(500).json({ message: 'Failed to stop' }) }
 })
 
-// Save final load test results to execution history
+// ─── Save to history ────────────────────────────────────────────────────────
 router.post('/save', authMiddleware, async (req: AuthRequest, res: Response) => {
   try {
     const {
-      workflowId,
-      loadTestId,
-      targetUrl,
-      method,
-      totalUsers,
-      completed,
-      successful,
-      failed,
-      successRate,
-      avgLatency,
-      minLatency,
-      maxLatency,
-      p50,
-      p95,
-      p99,
-      rps,
-      elapsed,
-      statusCodes,
-      errors,
+      workflowId, loadTestId, targetUrl, method,
+      totalUsers, completed, successful, failed,
+      successRate, avgLatency, minLatency, maxLatency,
+      rps, elapsed, statusCodes, errors, speed, verdict,
     } = req.body
 
     const userId = req.user!.id
+    let wfId: any = null
+    if (workflowId) { const w = await Workflow.findOne({ _id: workflowId, userId }); if (w) wfId = w._id }
+    if (!wfId)      { const w = await Workflow.findOne({ userId }); if (w) wfId = w._id }
+    if (!wfId) { res.status(200).json({ message: 'No workflow' }); return }
 
-    // If no workflowId, save without workflow reference using a placeholder
-    let workflowObjectId: any = null
-    if (workflowId) {
-      const workflow = await Workflow.findOne({ _id: workflowId, userId })
-      if (workflow) workflowObjectId = workflow._id
-    }
-
-    // If still no workflow, we still save — use a sentinel lookup
-    if (!workflowObjectId) {
-      // Try to find any workflow for this user to attach to
-      const anyWorkflow = await Workflow.findOne({ userId })
-      if (anyWorkflow) workflowObjectId = anyWorkflow._id
-    }
-
-    if (!workflowObjectId) {
-      // No workflow at all — still record as a standalone execution
-      res.status(200).json({ message: 'No workflow to attach to, skipping save' })
-      return
-    }
+    const idempotencyKey = `loadtest-${loadTestId}`
+    const existing = await Execution.findOne({ idempotencyKey })
+    if (existing) { res.json({ message: 'Already saved' }); return }
 
     const executionId = uuidv4()
-    const idempotencyKey = `loadtest-${loadTestId}`
-
-    // Check for duplicate
-    const existing = await Execution.findOne({ idempotencyKey })
-    if (existing) {
-      res.json({ message: 'Already saved', executionId: existing.executionId })
-      return
-    }
-
-    const overallStatus = successRate >= 90 ? 'success' : 'error'
-
     await Execution.create({
-      executionId,
-      workflowId: workflowObjectId,
-      userId,
-      status: overallStatus,
-      nodes: [],
-      totalTime: elapsed * 1000,
-      idempotencyKey,
-      completedAt: new Date(),
+      executionId, workflowId: wfId, userId,
+      status: successRate >= 90 ? 'success' : 'error',
+      nodes: [], totalTime: elapsed * 1000,
+      idempotencyKey, completedAt: new Date(),
       loadTestMeta: {
-        loadTestId,
-        targetUrl,
-        method,
-        totalUsers,
-        completed,
-        successful,
-        failed,
-        successRate,
-        avgLatency,
-        minLatency,
-        maxLatency,
-        p50,
-        p95,
-        p99,
-        rps,
-        elapsed,
-        statusCodes: statusCodes ?? {},
-        errors: errors ?? {},
+        loadTestId, targetUrl, method,
+        totalUsers, completed, successful, failed,
+        successRate, avgLatency, minLatency, maxLatency,
+        rps, elapsed, statusCodes: statusCodes ?? {}, errors: errors ?? {}, speed: speed ?? {}, verdict: verdict ?? 'Excellent',
       },
     })
-
-    res.json({ message: 'Load test saved to history', executionId })
+    res.json({ message: 'Saved', executionId })
   } catch (err) {
-    console.error('Load test save error:', err)
-    res.status(500).json({ message: 'Failed to save load test', error: err })
+    console.error('Save error:', err)
+    res.status(500).json({ message: 'Failed to save' })
   }
 })
 
-export default router
+export default router

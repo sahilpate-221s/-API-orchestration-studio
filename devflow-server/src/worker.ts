@@ -2,15 +2,13 @@ import 'dotenv/config'
 import { Worker, Job } from 'bullmq'
 import { connection } from './config/queue'
 import { executeWorkflowJob } from './services/executionService'
-import { executeLoadTestBatch } from './services/loadTestService'
 import { WorkflowJobData } from './types/jobs'
-import { LoadTestJobData } from './types/jobs'
 import { connectDB } from './config/database'
 
 export async function startWorker() {
   await connectDB()
 
-  // Workflow execution worker — unchanged
+  // Workflow execution worker — handles API workflow runs from the canvas
   const workflowWorker = new Worker<WorkflowJobData>(
     'workflow-execution',
     async (job: Job<WorkflowJobData>) => {
@@ -21,19 +19,6 @@ export async function startWorker() {
     {
       connection: connection as any,
       concurrency: 5,
-    }
-  )
-
-  // Load test worker — high concurrency to process all batches near-simultaneously
-  const loadTestWorker = new Worker<LoadTestJobData>(
-    'load-test',
-    async (job: Job<LoadTestJobData>) => {
-      console.log(`[LoadTest] Batch ${job.data.batchIndex} — ${job.data.batchSize} users`)
-      await executeLoadTestBatch(job)
-    },
-    {
-      connection: connection as any,
-      concurrency: 200, // Process 200 batches simultaneously
     }
   )
 
@@ -49,12 +34,9 @@ export async function startWorker() {
     console.warn(`[Worker] ⚠ Job ${jobId} stalled`)
   })
 
-  loadTestWorker.on('failed', (job, err) => {
-    console.error(`[LoadTest] ✗ Batch ${job?.data?.batchIndex} failed:`, err.message)
-  })
-
-  console.log('[Worker] Ready — waiting for jobs...')
-  console.log('[LoadTest Worker] Ready — waiting for load test batches...')
+  console.log('[Worker] Ready — waiting for workflow jobs...')
+  // NOTE: Load tests no longer go through BullMQ — they run directly in-process.
+  // See services/loadTestService.ts → runLoadTest()
 }
 
 // Only run automatically if executed directly (e.g. via `npm run worker`)

@@ -1,525 +1,668 @@
-import { useState, useEffect, useRef } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { Link } from 'react-router-dom'
+import { motion, AnimatePresence, useReducedMotion, useInView } from 'framer-motion'
+import {
+  ArrowRight,
+  ArrowUpRight,
+  Boxes,
+  Braces,
+  ChevronDown,
+  CircleDot,
+  Command,
+  CornerDownLeft,
+  GitMerge,
+  Layers,
+  Lock,
+  Menu,
+  RefreshCw,
+  Search,
+  ShieldCheck,
+  Terminal,
+  Timer,
+  Webhook,
+  X,
+  Zap,
+} from 'lucide-react'
 import Footer from './Footer'
 
-interface GSAP {
-  timeline(): any
-  from(target: any, vars: any): any
-  fromTo(target: any, fromVars: any, toVars: any): any
+/**
+ * ── Design tokens ──────────────────────────────────────────────
+ * bg / void        #0B0C0E   base canvas
+ * bg / raised      #131417   cards
+ * bg / raised-2    #17181C   hover / nested
+ * border           rgba(255,255,255,.08)   / hover rgba(255,255,255,.16)
+ * text / primary   #F2F3F5
+ * text / secondary #93959D
+ * text / faint     #5A5C64
+ * accent / emerald #3ECF8E   (Supabase signature — used for state, actions, focus)
+ * accent / violet  #8B7CF6   (single gradient partner, hero headline only)
+ * display   Inter Tight  700/800, tight tracking
+ * body      Inter        400/500
+ * mono      JetBrains Mono  — anything that is data: stats, code, status
+ * ──────────────────────────────────────────────────────────────
+ */
+
+type Mode = 'login' | 'register'
+
+function LogoMark() {
+  return (
+    <div className="relative w-7 h-7 rounded-lg bg-[#131417] border border-white/10 flex items-center justify-center overflow-hidden">
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(62,207,142,0.25)_0%,transparent_65%)]" />
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" className="relative">
+        <path d="M12 3L4 9V21L12 15L20 21V9L12 3Z" stroke="#3ECF8E" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+        <circle cx="12" cy="15" r="1.8" fill="#3ECF8E" />
+      </svg>
+    </div>
+  )
 }
 
-export default function LandingPage({ onAction }: { onAction: (mode: 'login' | 'register') => void }) {
-  const [scrolled, setScrolled] = useState(false)
-  const heroRef = useRef<HTMLDivElement>(null)
-  const titleRef = useRef<HTMLHeadingElement>(null)
-  const descRef = useRef<HTMLParagraphElement>(null)
-  const btnsRef = useRef<HTMLDivElement>(null)
-  const visualRef = useRef<HTMLDivElement>(null)
+type BtnVariant = 'primary' | 'secondary' | 'ghost'
+
+function Btn({
+  variant,
+  children,
+  className = '',
+  onClick,
+}: {
+  variant: BtnVariant
+  children: React.ReactNode
+  className?: string
+  onClick?: () => void
+}) {
+  const base =
+    'inline-flex items-center justify-center gap-2 rounded-full font-semibold transition-all duration-200 active:scale-[0.97] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#3ECF8E]/50 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0B0C0E]'
+  const variants: Record<BtnVariant, string> = {
+    primary: 'bg-[#3ECF8E] text-[#06110C] hover:bg-[#5BDA9F] shadow-[0_0_0_1px_rgba(62,207,142,0.3),0_10px_30px_-8px_rgba(62,207,142,0.45)]',
+    secondary: 'bg-white/[0.04] text-white border border-white/10 hover:bg-white/[0.08] hover:border-white/20',
+    ghost: 'text-[#93959D] hover:text-white',
+  }
+  return (
+    <button type="button" onClick={onClick} className={`${base} ${variants[variant]} ${className}`}>
+      {children}
+    </button>
+  )
+}
+
+function Eyebrow({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="inline-flex items-center gap-2 text-[11px] font-mono font-medium tracking-[0.14em] text-[#3ECF8E] uppercase">
+      <span className="w-1 h-1 rounded-full bg-[#3ECF8E]" />
+      {children}
+    </div>
+  )
+}
+
+/* ── Hero signature: command palette resolving into the Kahn's-algorithm DAG ── */
+function CommandPaletteDemo() {
+  const [active, setActive] = useState(0)
+  const results = [
+    { icon: Webhook, label: 'Stripe Webhook Trigger', meta: 'node · trigger' },
+    { icon: Braces, label: 'Validate order.paid schema', meta: 'node · validate' },
+    { icon: GitMerge, label: 'Run fulfillment_v2', meta: 'workflow · 4 nodes' },
+  ]
 
   useEffect(() => {
-    const handleScroll = () => setScrolled(window.scrollY > 20)
-    window.addEventListener('scroll', handleScroll)
-
-    // Load GSAP from CDN
-    const script = document.createElement('script')
-    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js'
-    script.async = true
-    script.onload = () => {
-    const gsap = (window as { gsap?: GSAP } & typeof globalThis).gsap
-      if (gsap && titleRef.current) {
-        // Hero entry animation
-        const tl = gsap.timeline()
-        tl.fromTo(titleRef.current, { y: 60, opacity: 0 }, { y: 0, opacity: 1, duration: 1, ease: 'power4.out', delay: 0.2 })
-          .fromTo(descRef.current, { y: 30, opacity: 0 }, { y: 0, opacity: 1, duration: 0.8, ease: 'power3.out' }, '-=0.6')
-          .fromTo(btnsRef.current, { y: 20, opacity: 0 }, { y: 0, opacity: 1, duration: 0.6, ease: 'power3.out' }, '-=0.4')
-          .fromTo(visualRef.current, { y: 100, opacity: 0 }, { y: 0, opacity: 1, duration: 1.2, ease: 'expo.out' }, '-=0.5')
-
-        // Scroll reveal animations
-        const revealEls = document.querySelectorAll('.gsap-reveal')
-        revealEls.forEach((el) => {
-          gsap.fromTo(el, { y: 40, opacity: 0 }, {
-            scrollTrigger: {
-              trigger: el,
-              start: 'top 85%',
-              toggleActions: 'play none none none'
-            },
-            y: 0,
-            opacity: 1,
-            duration: 0.8,
-            ease: 'power2.out'
-          })
-        })
-      }
-    }
-    document.head.appendChild(script)
-
-    // ScrollTrigger script
-    const stScript = document.createElement('script')
-    stScript.src = 'https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/ScrollTrigger.min.js'
-    stScript.async = true
-    document.head.appendChild(stScript)
-
-    return () => {
-      window.removeEventListener('scroll', handleScroll)
-    }
-  }, [])
+    const id = setInterval(() => setActive((n) => (n + 1) % results.length), 2200)
+    return () => clearInterval(id)
+  }, [results.length])
 
   return (
-    <div
-      style={{
-        width: '100%',
-        minHeight: '100vh',
-        background: '#000000',
-        color: '#ffffff',
-        fontFamily: '"Outfit", "Inter", sans-serif',
-        overflow: 'visible',
-        scrollBehavior: 'smooth',
-      }}
-    >
-      <style>
-        {`
-          @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap');
-          
-          .glass-card {
-            background: rgba(255, 255, 255, 0.02);
-            border: 1px solid rgba(255, 255, 255, 0.05);
-            backdrop-filter: blur(16px);
-            border-radius: 32px;
-            transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
-          }
-          .glass-card:hover {
-            background: rgba(255, 255, 255, 0.05);
-            border-color: rgba(255, 255, 255, 0.15);
-            transform: translateY(-12px);
-            box-shadow: 0 40px 80px rgba(0,0,0,0.7);
-          }
-          .gradient-text-gold {
-            background: linear-gradient(135deg, #fff 0%, #fbbf24 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-          }
-          .nav-link {
-            font-size: 14px;
-            fontWeight: 500;
-            color: rgba(255,255,255,0.5);
-            text-decoration: none;
-            transition: color 0.2s;
-          }
-          .nav-link:hover {
-            color: #fff;
-          }
-          .primary-btn {
-            background: #ffffff;
-            color: #000000;
-            padding: 16px 36px;
-            border-radius: 14px;
-            font-weight: 700;
-            font-size: 16px;
-            border: none;
-            cursor: pointer;
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            box-shadow: 0 10px 20px rgba(255,255,255,0.1);
-          }
-          .primary-btn:hover {
-            background: #f4f4f5;
-            transform: translateY(-2px) scale(1.02);
-            box-shadow: 0 20px 40px rgba(255,255,255,0.2);
-          }
-          .code-block {
-            background: #0a0a0a;
-            border: 1px solid rgba(255,255,255,0.06);
-            border-radius: 16px;
-            padding: 24px;
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 13px;
-            color: #a5b4fc;
-            line-height: 1.6;
-            box-shadow: inset 0 0 40px rgba(0,0,0,0.5);
-          }
-        `}
-      </style>
+    <div className="relative rounded-2xl border border-white/10 bg-[#0E0F12] shadow-[0_40px_100px_-30px_rgba(0,0,0,0.8)] overflow-hidden">
+      <div className="flex items-center gap-3 px-5 py-4 border-b border-white/[0.06]">
+        <Search size={15} className="text-[#5A5C64]" />
+        <span className="text-sm text-[#5A5C64] font-mono">Search workflows, nodes, runs…</span>
+        <span className="ml-auto flex items-center gap-1 text-[10px] font-mono text-[#5A5C64] border border-white/10 rounded px-1.5 py-0.5">
+          <Command size={10} /> K
+        </span>
+      </div>
 
-      {/* Navigation */}
-      <nav style={{
-        height: '80px',
-        width: '100%',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        padding: '0 80px',
-        position: 'fixed',
-        top: 0,
-        zIndex: 1000,
-        background: scrolled ? 'rgba(0,0,0,0.85)' : 'transparent',
-        backdropFilter: scrolled ? 'blur(24px)' : 'none',
-        borderBottom: scrolled ? '1px solid rgba(255,255,255,0.08)' : '1px solid transparent',
-        transition: 'all 0.4s ease',
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <div style={{ 
-            width: '36px', 
-            height: '36px', 
-            borderRadius: '11px', 
-            background: 'rgba(255, 255, 255, 0.05)', 
-            border: '1px solid rgba(255, 255, 255, 0.15)',
-            display: 'flex', 
-            alignItems: 'center', 
-            justifyContent: 'center', 
-            boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
-            position: 'relative',
-            overflow: 'hidden'
-          }}>
-             <div style={{
-               position: 'absolute',
-               width: '100%',
-               height: '100%',
-               background: 'radial-gradient(circle at 30% 30%, rgba(255,255,255,0.15) 0%, transparent 70%)',
-             }} />
-             <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-               <path d="M12 3L4 9V21L12 15L20 21V9L12 3Z" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-               <path d="M12 15V3" stroke="white" strokeWidth="2" strokeLinecap="round" opacity="0.4" />
-               <circle cx="12" cy="15" r="2" fill="white" />
-             </svg>
-          </div>
-          <span style={{ fontSize: '24px', fontWeight: 800, letterSpacing: '-0.04em' }}>DevFlow</span>
-        </div>
-        <div style={{ display: 'flex', gap: '48px', alignItems: 'center' }}>
-          <a href="#features" className="nav-link">Features</a>
-          <a href="#engine" className="nav-link">The Engine</a>
-          <a href="#pricing" className="nav-link">Pricing</a>
-          <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-            <button 
-              className="nav-link" 
-              style={{ background: 'none', border: 'none', cursor: 'pointer' }}
-              onClick={() => onAction('login')}
+      <div className="p-2">
+        {results.map((r, i) => (
+          <div
+            key={r.label}
+            className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors duration-300 ${
+              active === i ? 'bg-[#3ECF8E]/10' : ''
+            }`}
+          >
+            <div
+              className={`w-7 h-7 rounded-md flex items-center justify-center border transition-colors duration-300 ${
+                active === i ? 'border-[#3ECF8E]/30 bg-[#3ECF8E]/10 text-[#3ECF8E]' : 'border-white/10 bg-white/[0.03] text-[#93959D]'
+              }`}
             >
-              Sign In
-            </button>
-            <button 
-              className="primary-btn" 
-              style={{ padding: '10px 24px', fontSize: '14px' }} 
-              onClick={() => onAction('register')}
-            >
-              Get Started
-            </button>
-          </div>
-        </div>
-      </nav>
-
-      {/* Hero Section */}
-      <section ref={heroRef} style={{
-        padding: '240px 20px 160px',
-        textAlign: 'center',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        background: 'radial-gradient(circle at 50% 10%, rgba(255,255,255,0.05) 0%, transparent 50%)',
-      }}>
-        <h1 ref={titleRef} style={{
-          fontSize: '110px',
-          fontWeight: 800,
-          lineHeight: 0.95,
-          maxWidth: '1100px',
-          marginBottom: '32px',
-          letterSpacing: '-0.06em',
-          background: 'linear-gradient(to bottom, #fff 50%, rgba(255,255,255,0.2))',
-          WebkitBackgroundClip: 'text',
-          WebkitTextFillColor: 'transparent',
-        }}>
-          Automate APIs <br /> with visual logic.
-        </h1>
-
-        <p ref={descRef} style={{
-          fontSize: '24px',
-          color: 'rgba(255,255,255,0.45)',
-          maxWidth: '740px',
-          lineHeight: 1.6,
-          marginBottom: '64px',
-          fontWeight: 400,
-        }}>
-          DevFlow is the powerful workflow engine for modern engineering teams. 
-          Build, test, and scale mission-critical API flows in record time.
-        </p>
-
-        <div ref={btnsRef} style={{ display: 'flex', gap: '24px' }}>
-          <button className="primary-btn" onClick={() => onAction('register')}>
-             Launch App — It's Free
-          </button>
-          <button 
-            onClick={() => onAction('login')}
-            style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', borderRadius: '14px', padding: '16px 40px', fontSize: '16px', fontWeight: 600, cursor: 'pointer' }}>
-             Sign In
-          </button>
-        </div>
-
-        {/* Hero Dashboard Visual */}
-        <div ref={visualRef} style={{
-          marginTop: '120px',
-          width: '100%',
-          maxWidth: '1300px',
-          borderRadius: '40px',
-          padding: '2px',
-          background: 'linear-gradient(135deg, rgba(255,255,255,0.15) 0%, transparent 40%)',
-          boxShadow: '0 80px 160px rgba(0,0,0,0.9)',
-          position: 'relative',
-        }}>
-          <div style={{ borderRadius: '38px', overflow: 'hidden', position: 'relative', background: '#0a0a0a' }}>
-            <div style={{ width: '100%', height: '500px', background: 'linear-gradient(135deg, #0c0c0c 0%, #1a1a1a 100%)', borderRadius: '20px', position: 'relative', overflow: 'hidden' }}>
-              <div style={{ position: 'absolute', inset: 0, backgroundImage: 'radial-gradient(circle at 20% 80%, rgba(255, 255, 255, 0.05) 0%, transparent 50%), radial-gradient(circle at 80% 20%, rgba(255, 255, 255, 0.03) 0%, transparent 50%)' }} />
-              <div style={{ position: 'relative', zIndex: 2, padding: '40px', color: '#fff', height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-                <div style={{ fontSize: '24px', fontWeight: 700, marginBottom: '16px', opacity: 0.9 }}>DevFlow Dashboard Preview</div>
-                <div style={{ fontSize: '14px', opacity: 0.6, maxWidth: '300px' }}>Drag & drop workflow nodes, real-time execution preview, and seamless API orchestration interface.</div>
-              </div>
+              <r.icon size={13} />
             </div>
+            <span className={`text-sm font-medium ${active === i ? 'text-white' : 'text-[#93959D]'}`}>{r.label}</span>
+            <span className="ml-auto text-[10px] font-mono text-[#5A5C64]">{r.meta}</span>
+          </div>
+        ))}
+      </div>
 
+      <div className="border-t border-white/[0.06] px-5 py-4 bg-black/20">
+        <div className="flex items-center justify-between mb-3">
+          <span className="text-[10px] font-mono uppercase tracking-widest text-[#5A5C64]">Resolves to execution graph</span>
+          <span className="flex items-center gap-1.5 text-[10px] font-mono text-[#3ECF8E]">
+            <CircleDot size={10} className="animate-pulse" /> live
+          </span>
+        </div>
+        <div className="flex items-center justify-between">
+          {[
+            { label: 'A', sub: 'level 0' },
+            { label: 'B · C', sub: 'level 1 · parallel' },
+            { label: 'D', sub: 'level 2' },
+          ].map((n, i) => (
+            <div key={n.label} className="flex items-center">
+              <div className="flex flex-col items-center gap-1.5">
+                <div className="w-11 h-11 rounded-xl border border-[#3ECF8E]/25 bg-[#3ECF8E]/[0.06] flex items-center justify-center text-xs font-mono font-bold text-[#3ECF8E]">
+                  {n.label}
+                </div>
+                <span className="text-[9px] font-mono text-[#5A5C64]">{n.sub}</span>
+              </div>
+              {i < 2 && <div className="w-6 md:w-10 h-px bg-gradient-to-r from-[#3ECF8E]/40 to-[#3ECF8E]/10 mx-1 md:mx-2 mb-4" />}
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/* ── Code panel with tabs, sourced from the real API reference ── */
+function CodePanel() {
+  const [tab, setTab] = useState<'run' | 'socket'>('run')
+  const runSnippet = `await fetch('/api/execution/wf_92k1/run', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'X-Idempotency-Key': crypto.randomUUID(),
+  },
+})
+// duplicate keys return the existing
+// executionId instead of a new run`
+
+  const socketSnippet = `socket.emit('join_workflow', workflowId)
+
+socket.on('node_update', ({ nodeId, status, executionTime, fromCache }) => {
+  // status: idle | running | success | error
+  updateNode(nodeId, { status, executionTime, fromCache })
+})`
+
+  return (
+    <div className="rounded-2xl border border-white/10 bg-[#0E0F12] overflow-hidden">
+      <div className="flex items-center border-b border-white/[0.06]">
+        {(['run', 'socket'] as const).map((t) => (
+          <button
+            key={t}
+            onClick={() => setTab(t)}
+            className={`px-5 py-3.5 text-xs font-mono font-medium transition-colors relative ${
+              tab === t ? 'text-white' : 'text-[#5A5C64] hover:text-[#93959D]'
+            }`}
+          >
+            {t === 'run' ? 'run-workflow.ts' : 'live-updates.ts'}
+            {tab === t && <span className="absolute left-0 right-0 -bottom-px h-px bg-[#3ECF8E]" />}
+          </button>
+        ))}
+        <span className="ml-auto mr-4 flex items-center gap-1 text-[10px] font-mono text-[#5A5C64]">
+          <span className="w-2 h-2 rounded-full bg-[#3ECF8E]/70" /> 200 OK
+        </span>
+      </div>
+      <pre className="p-5 text-[12.5px] leading-relaxed font-mono text-[#C9CBD1] overflow-x-auto">
+        <code>{tab === 'run' ? runSnippet : socketSnippet}</code>
+      </pre>
+    </div>
+  )
+}
+
+function FeatureCard({
+  icon: Icon,
+  title,
+  copy,
+  detail,
+  className = '',
+}: {
+  icon: React.ElementType
+  title: string
+  copy: string
+  detail: string
+  className?: string
+}) {
+  return (
+    <div
+      className={`group rounded-2xl border border-white/[0.07] bg-[#0E0F12] p-6 hover:border-[#3ECF8E]/25 transition-colors duration-300 ${className}`}
+    >
+      <div className="flex items-center justify-between mb-5">
+        <div className="w-9 h-9 rounded-lg border border-white/10 bg-white/[0.03] flex items-center justify-center text-[#93959D] group-hover:text-[#3ECF8E] group-hover:border-[#3ECF8E]/25 transition-colors duration-300">
+          <Icon size={16} />
+        </div>
+        <span className="text-[10px] font-mono text-[#5A5C64]">{detail}</span>
+      </div>
+      <h3 className="text-[15px] font-semibold text-white tracking-tight">{title}</h3>
+      <p className="text-sm text-[#93959D] mt-2 leading-relaxed">{copy}</p>
+    </div>
+  )
+}
+
+function useCountUp(to: number, start: boolean, decimals = 0, duration = 1100) {
+  const [v, setV] = useState(0)
+  useEffect(() => {
+    if (!start) return
+    let raf = 0
+    const t0 = performance.now()
+    const tick = (now: number) => {
+      const t = Math.min(1, (now - t0) / duration)
+      const eased = 1 - Math.pow(1 - t, 3)
+      setV(Number((to * eased).toFixed(decimals)))
+      if (t < 1) raf = requestAnimationFrame(tick)
+    }
+    raf = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(raf)
+  }, [start, to, decimals, duration])
+  return v
+}
+
+export default function LandingPage({ onAction }: { onAction: (mode: Mode) => void }) {
+  const [scrolled, setScrolled] = useState(false)
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const [activeFaq, setActiveFaq] = useState<number | null>(0)
+  const reducedMotion = useReducedMotion()
+
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 16)
+    window.addEventListener('scroll', onScroll)
+    return () => window.removeEventListener('scroll', onScroll)
+  }, [])
+
+  const statsRef = useRef<HTMLDivElement>(null)
+  const statsInView = useInView(statsRef, { once: true, amount: 0.4 })
+  const cold = useCountUp(2700, statsInView)
+  const warm = useCountUp(193, statsInView)
+  const improvement = useCountUp(93, statsInView)
+  const success = useCountUp(100, statsInView)
+
+  const navLink = 'text-[13px] font-medium text-[#93959D] hover:text-white transition-colors'
+
+  const fadeUp = reducedMotion
+    ? {}
+    : { initial: { opacity: 0, y: 16 }, whileInView: { opacity: 1, y: 0 }, viewport: { once: true, amount: 0.3 }, transition: { duration: 0.5, ease: 'easeOut' as const } }
+
+  const features = [
+    { icon: Layers, title: 'Infinite canvas', copy: 'Drag nodes onto a pan-and-zoom canvas built on React Flow. Connect by dragging handles, watch edges animate the direction of data.', detail: 'react-flow' },
+    { icon: Braces, title: 'Postman-like editor', copy: 'Method, headers, auth helpers, body types, and {{ENV_VAR}} interpolation — configure a request the way you already know how.', detail: 'node config' },
+    { icon: GitMerge, title: 'JSONPath field mapping', copy: 'Pipe a response field from any upstream node straight into the next URL, header, or body — resolved at execution time.', detail: '$.id → body.userId' },
+    { icon: Boxes, title: 'Kahn\u2019s-algorithm DAG', copy: 'Nodes are topologically sorted into levels. Independent nodes in the same level run together with Promise.all.', detail: 'O(V + E)' },
+    { icon: RefreshCw, title: 'BullMQ job queue', copy: 'Every run is a Redis-backed job with exponential-backoff retries, a dead-letter queue, and idempotency keys against double-runs.', detail: 'redis · bullmq' },
+    { icon: Zap, title: 'Live socket streaming', copy: 'Each workflow gets its own Socket.io room. Node status, timing, and cache hits stream to the canvas as they happen.', detail: 'socket.io' },
+  ]
+
+  const useCases = [
+    { icon: Lock, title: 'Auth flow', copy: 'Register → verify → issue token, chained as one testable graph instead of three manual Postman calls.' },
+    { icon: GitMerge, title: 'Data chain', copy: 'Fetch a user, pipe their id into an orders lookup, pipe the order total into a billing call.' },
+    { icon: Layers, title: 'Parallel fetch', copy: 'Hit five independent endpoints in the same level, fan the results back into one aggregation node.' },
+    { icon: Webhook, title: 'Webhook validator', copy: 'Verify a signature, check a JSON schema, and continue-on-failure so one bad payload doesn\u2019t kill the run.' },
+  ]
+
+  const faqs = [
+    { q: 'Why is a warm run 14x faster than a cold one?', a: 'Every node config is hashed with SHA256 (method + URL + headers + body) and the response is cached in Redis for 5 minutes. A cache hit returns in 0ms and skips the real HTTP call entirely — that\u2019s the 2700ms \u2192 193ms difference below.' },
+    { q: 'What happens if I click Run twice?', a: 'Every run request carries a client-generated idempotency key. If DevFlow has already seen that key, it returns the existing execution instead of starting a duplicate one — covers double-clicks, network retries, and refreshes mid-run.' },
+    { q: 'Can steps actually run in parallel?', a: 'Yes. Workflows are topologically sorted with Kahn\u2019s algorithm into execution levels. Everything in a level has no dependency on anything else in it, so the level runs as one Promise.all batch.' },
+    { q: 'What happens when a node fails?', a: 'Per-node retry with exponential backoff (1s \u2192 2s \u2192 4s) and a 15s timeout. If it still fails, continue-on-failure marks that node and keeps executing the rest of the graph.' },
+    { q: 'Can I self-host it?', a: 'Yes \u2014 docker-compose.yml ships Mongo, Redis, the API server, the worker process, and the client as separate services. The worker scales horizontally on its own.' },
+  ]
+
+  return (
+    <div className="relative min-h-screen bg-[#0B0C0E] text-white font-sans overflow-x-hidden selection:bg-[#3ECF8E]/20 selection:text-white">
+      {/* Ambient background */}
+      <div aria-hidden className="fixed inset-0 z-0 pointer-events-none">
+        <div className="absolute inset-0 devflow2-dots opacity-[0.5]" />
+        <div className="absolute top-[-10%] left-[10%] w-[50vw] h-[50vw] max-w-[720px] rounded-full bg-[#3ECF8E]/[0.06] blur-[130px]" />
+        <div className="absolute top-[30%] right-[-10%] w-[40vw] h-[40vw] max-w-[600px] rounded-full bg-[#8B7CF6]/[0.04] blur-[140px]" />
+        <div className="absolute inset-0 devflow2-grain opacity-[0.025] mix-blend-overlay" />
+      </div>
+
+      {/* Nav */}
+      <header className="sticky top-0 z-50 flex justify-center px-4 pt-4">
+        <div
+          className={`w-full max-w-6xl flex items-center justify-between px-5 py-2.5 rounded-full border backdrop-blur-xl transition-all duration-300 ${
+            scrolled ? 'bg-[#0B0C0E]/85 border-white/10 shadow-[0_16px_40px_rgba(0,0,0,0.5)]' : 'bg-[#0B0C0E]/40 border-white/[0.06]'
+          }`}
+        >
+          <div className="flex items-center gap-2.5">
+            <LogoMark />
+            <span className="text-[15px] font-bold tracking-tight">DevFlow</span>
+          </div>
+
+          <nav className="hidden md:flex items-center gap-7">
+            <a href="#features" className={navLink}>Features</a>
+            <a href="#engine" className={navLink}>Engine</a>
+            <Link to="/pricing" className={navLink}>Pricing</Link>
+            <Link to="/about" className={navLink}>About</Link>
+            <Link to="/contact" className={navLink}>Contact</Link>
+          </nav>
+
+          <div className="hidden md:flex items-center gap-2">
+            <button className="flex items-center gap-2 px-3 py-1.5 rounded-full border border-white/10 bg-white/[0.03] text-[#5A5C64] hover:text-white hover:border-white/20 transition-colors text-xs font-mono">
+              <Search size={12} /> <Command size={11} />K
+            </button>
+            <Btn variant="ghost" className="px-3 py-1.5 text-[13px]" onClick={() => onAction('login')}>Sign in</Btn>
+            <Btn variant="primary" className="px-4 py-1.5 text-[13px]" onClick={() => onAction('register')}>
+              Start free <ArrowRight size={14} />
+            </Btn>
+          </div>
+
+          <button aria-label="Toggle menu" onClick={() => setMobileMenuOpen((v) => !v)} className="md:hidden p-1.5 text-[#93959D]">
+            {mobileMenuOpen ? <X size={18} /> : <Menu size={18} />}
+          </button>
+        </div>
+      </header>
+
+      <AnimatePresence>
+        {mobileMenuOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-40 md:hidden bg-[#0B0C0E]/98 backdrop-blur-xl flex flex-col px-8 pt-28 gap-7"
+          >
+            {['features', 'engine', 'pricing', 'faq'].map((id) => (
+              <a key={id} href={`#${id}`} onClick={() => setMobileMenuOpen(false)} className="text-2xl font-bold capitalize text-center">
+                {id}
+              </a>
+            ))}
+            <div className="h-px bg-white/10 my-2" />
+            <Btn variant="secondary" className="w-full py-3.5" onClick={() => { onAction('login'); setMobileMenuOpen(false) }}>Sign in</Btn>
+            <Btn variant="primary" className="w-full py-3.5" onClick={() => { onAction('register'); setMobileMenuOpen(false) }}>Start free</Btn>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Hero */}
+      <section className="relative z-10 max-w-6xl mx-auto px-4 pt-20 md:pt-28 pb-20">
+        <div className="grid grid-cols-1 lg:grid-cols-[1.05fr_0.95fr] gap-14 items-center">
+          <motion.div {...fadeUp}>
+            <Eyebrow>Visual API orchestration</Eyebrow>
+            <h1 className="text-[44px] sm:text-[56px] lg:text-[64px] font-extrabold tracking-tight leading-[1.02] mt-5">
+              Chain your APIs.
+              <br />
+              <span className="bg-gradient-to-r from-[#3ECF8E] to-[#8B7CF6] bg-clip-text text-transparent">Watch them run live.</span>
+            </h1>
+            <p className="text-[17px] text-[#93959D] leading-relaxed mt-6 max-w-lg">
+              Design workflows on an infinite canvas, execute them as a real DAG with parallel branches, and watch every node update over a live socket connection — no glue code.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-3 mt-9">
+              <Btn variant="primary" className="px-6 py-3.5 text-[15px]" onClick={() => onAction('register')}>
+                Open the canvas <ArrowRight size={16} />
+              </Btn>
+              <Btn variant="secondary" className="px-6 py-3.5 text-[15px]" onClick={() => onAction('login')}>
+                Sign in
+              </Btn>
+            </div>
+            <div className="flex items-center gap-5 mt-9 text-[13px] text-[#5A5C64] font-mono">
+              <span className="flex items-center gap-1.5"><ShieldCheck size={13} className="text-[#3ECF8E]" /> encrypted credentials</span>
+              <span className="flex items-center gap-1.5"><Terminal size={13} className="text-[#3ECF8E]" /> self-hostable</span>
+            </div>
+          </motion.div>
+
+          <motion.div {...(reducedMotion ? {} : { initial: { opacity: 0, y: 20 }, animate: { opacity: 1, y: 0 }, transition: { duration: 0.6, delay: 0.1, ease: 'easeOut' as const } })}>
+            <CommandPaletteDemo />
+          </motion.div>
+        </div>
+      </section>
+
+      {/* Real benchmark stats — grounded, not filler */}
+      <section ref={statsRef} className="relative z-10 border-y border-white/[0.06] bg-[#0E0F12]/60">
+        <div className="max-w-6xl mx-auto px-4 py-10">
+          <div className="flex items-center justify-between mb-6">
+            <span className="text-[11px] font-mono uppercase tracking-widest text-[#5A5C64]">Benchmark — 8-node workflow, 20 concurrent runs</span>
+            <ArrowUpRight size={13} className="text-[#5A5C64]" />
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
+            {[
+              { label: 'Cold run', value: `${cold}ms`, sub: 'no cache' },
+              { label: 'Warm run', value: `${warm}ms`, sub: 'all cached' },
+              { label: 'Latency reduction', value: `${improvement}%`, sub: 'cache vs. cold' },
+              { label: 'Success rate', value: `${success}%`, sub: 'across 20 runs' },
+            ].map((s) => (
+              <div key={s.label}>
+                <div className="text-3xl md:text-4xl font-mono font-bold text-white tracking-tight">{s.value}</div>
+                <div className="text-[13px] font-semibold text-[#3ECF8E] mt-1.5">{s.label}</div>
+                <div className="text-[12px] text-[#5A5C64] mt-0.5">{s.sub}</div>
+              </div>
+            ))}
           </div>
         </div>
       </section>
 
-      {/* Section 1: The Engine (Text Heavy) */}
-      <section id="engine" style={{ padding: '160px 20px', maxWidth: '1200px', margin: '0 auto' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '100px', alignItems: 'center' }}>
-           <div className="gsap-reveal">
-              <h2 style={{ fontSize: '64px', fontWeight: 800, marginBottom: '32px', lineHeight: 1.1, letterSpacing: '-0.04em' }}>
-                Engineered for <br /> massive scale.
-              </h2>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', color: 'rgba(255,255,255,0.5)', fontSize: '18px', lineHeight: 1.7 }}>
-                 <p>
-                    Most workflow tools are built for simple automations. DevFlow is different. We built a custom execution engine from the ground up to handle high-throughput production environments.
-                 </p>
-                 <p>
-                    Whether you are processing 10 webhooks per day or 10,000 requests per second, DevFlow scales elastically across our global edge network. Your logic is executed as close to your users as possible, ensuring sub-20ms latency.
-                 </p>
-                 <p>
-                    With built-in circuit breakers, automatic retries with exponential backoff, and stateful error handling, your API infrastructure has never been more resilient.
-                 </p>
+      {/* Features */}
+      <section id="features" className="relative z-10 max-w-6xl mx-auto px-4 py-24">
+        <motion.div {...fadeUp} className="max-w-xl mb-14">
+          <Eyebrow>Everything the engine does</Eyebrow>
+          <h2 className="text-3xl md:text-5xl font-extrabold tracking-tight mt-4">Built like infrastructure, not a form builder.</h2>
+          <p className="text-[#93959D] mt-4 leading-relaxed">Six pieces that add up to a real execution engine — not just a pretty canvas on top of a single HTTP call.</p>
+        </motion.div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {features.map((f, i) => (
+            <motion.div key={f.title} {...fadeUp} transition={{ ...(fadeUp as any).transition, delay: i * 0.05 }}>
+              <FeatureCard {...f} />
+            </motion.div>
+          ))}
+        </div>
+      </section>
+
+      {/* Engine — Kahn's algorithm + code, grounded directly in the README */}
+      <section id="engine" className="relative z-10 border-y border-white/[0.06] bg-[#0E0F12]/40 py-24">
+        <div className="max-w-6xl mx-auto px-4">
+          <motion.div {...fadeUp} className="max-w-xl mb-14">
+            <Eyebrow>How execution actually works</Eyebrow>
+            <h2 className="text-3xl md:text-5xl font-extrabold tracking-tight mt-4">Topological sort, not a for-loop.</h2>
+            <p className="text-[#93959D] mt-4 leading-relaxed">
+              Workflows are directed acyclic graphs. DevFlow builds an in-degree map, groups nodes with no unmet dependencies into levels, and runs each level with <code className="font-mono text-[#3ECF8E]">Promise.all</code>.
+            </p>
+          </motion.div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <motion.div {...fadeUp} className="rounded-2xl border border-white/[0.07] bg-[#0E0F12] p-7">
+              <span className="text-[10px] font-mono uppercase tracking-widest text-[#5A5C64]">Example graph</span>
+              <div className="mt-2 font-mono text-sm text-[#93959D]">
+                A → B → D<br />A → C → D
               </div>
-           </div>
-           <div className="gsap-reveal" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-              <div className="code-block">
-                <div style={{ color: '#ffffff', opacity: 0.4, marginBottom: '8px' }}>// Initialize Flow Engine</div>
-                <div>const engine = new DevFlow('v2.0');</div>
-                <br />
-                <div style={{ color: '#ffffff' }}>engine.on('webhook_received', async (ctx) =&gt; &#123;</div>
-                <div style={{ paddingLeft: '20px' }}>
-                  await ctx.validate(); <br />
-                  await ctx.transform('user_data'); <br />
-                  await ctx.dispatch('crm_sync');
+              <div className="mt-8 space-y-4">
+                {[
+                  { level: 'Level 0', nodes: 'A', note: 'no dependencies — runs first', width: '33%' },
+                  { level: 'Level 1', nodes: 'B, C', note: 'independent — Promise.all([B, C])', width: '66%' },
+                  { level: 'Level 2', nodes: 'D', note: 'waits on both B and C', width: '100%' },
+                ].map((row) => (
+                  <div key={row.level}>
+                    <div className="flex items-center justify-between text-xs font-mono mb-1.5">
+                      <span className="text-[#3ECF8E]">{row.level}</span>
+                      <span className="text-white font-semibold">{row.nodes}</span>
+                    </div>
+                    <div className="h-1.5 rounded-full bg-white/[0.04] overflow-hidden">
+                      <div className="h-full rounded-full bg-[#3ECF8E]/60" style={{ width: row.width }} />
+                    </div>
+                    <div className="text-[11px] text-[#5A5C64] mt-1.5">{row.note}</div>
+                  </div>
+                ))}
+              </div>
+              <div className="flex items-center gap-4 mt-7 pt-5 border-t border-white/[0.06] text-[11px] font-mono text-[#5A5C64]">
+                <span>time: O(V + E)</span>
+                <span>space: O(V)</span>
+              </div>
+            </motion.div>
+
+            <motion.div {...fadeUp} transition={{ ...(fadeUp as any).transition, delay: 0.08 }}>
+              <CodePanel />
+            </motion.div>
+          </div>
+        </div>
+      </section>
+
+      {/* Use cases — Node Templates from the README */}
+      <section className="relative z-10 max-w-6xl mx-auto px-4 py-24">
+        <motion.div {...fadeUp} className="max-w-xl mb-14">
+          <Eyebrow>Starter templates</Eyebrow>
+          <h2 className="text-3xl md:text-5xl font-extrabold tracking-tight mt-4">Four graphs to fork on day one.</h2>
+        </motion.div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {useCases.map((u, i) => (
+            <motion.div
+              key={u.title}
+              {...fadeUp}
+              transition={{ ...(fadeUp as any).transition, delay: i * 0.05 }}
+              className="flex items-start gap-4 rounded-2xl border border-white/[0.07] bg-[#0E0F12] p-6 hover:border-[#3ECF8E]/25 transition-colors"
+            >
+              <div className="w-9 h-9 shrink-0 rounded-lg border border-white/10 bg-white/[0.03] flex items-center justify-center text-[#3ECF8E]">
+                <u.icon size={16} />
+              </div>
+              <div>
+                <h3 className="text-[15px] font-semibold text-white">{u.title}</h3>
+                <p className="text-sm text-[#93959D] mt-1.5 leading-relaxed">{u.copy}</p>
+              </div>
+            </motion.div>
+          ))}
+        </div>
+      </section>
+
+      {/* Pricing — tiers grounded in the real rate-limit numbers */}
+      <section id="pricing" className="relative z-10 border-y border-white/[0.06] bg-[#0E0F12]/40 py-24">
+        <div className="max-w-6xl mx-auto px-4">
+          <motion.div {...fadeUp} className="max-w-xl mb-14">
+            <Eyebrow>Pricing</Eyebrow>
+            <h2 className="text-3xl md:text-5xl font-extrabold tracking-tight mt-4">Priced the way the engine works.</h2>
+            <p className="text-[#93959D] mt-4 leading-relaxed">Limits map directly to the queue — no vague "credits."</p>
+          </motion.div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+            {[
+              {
+                tier: 'Free',
+                price: '$0',
+                copy: 'For prototyping a graph before you wire it into anything real.',
+                items: ['3 active workflows', '100 executions / hour', 'Community support'],
+                cta: 'Start free',
+                variant: 'secondary' as BtnVariant,
+              },
+              {
+                tier: 'Team',
+                price: '$49',
+                copy: 'For production workflows with real concurrency.',
+                items: ['Unlimited workflows', '5 concurrent worker jobs', '100 executions / hour, per account', 'Priority Slack support'],
+                cta: 'Go Team',
+                variant: 'primary' as BtnVariant,
+                highlighted: true,
+              },
+              {
+                tier: 'Enterprise',
+                price: 'Custom',
+                copy: 'Self-hosted or dedicated infra with contractual SLAs.',
+                items: ['Dedicated worker concurrency', 'Self-hosted via Docker Compose', 'SSO + audit log', '99.99% uptime SLA'],
+                cta: 'Contact sales',
+                variant: 'secondary' as BtnVariant,
+              },
+            ].map((p) => (
+              <motion.div
+                key={p.tier}
+                {...fadeUp}
+                className={`rounded-2xl p-7 flex flex-col justify-between ${
+                  p.highlighted
+                    ? 'border border-[#3ECF8E]/30 bg-[#0E0F12] shadow-[0_20px_60px_-20px_rgba(62,207,142,0.25)]'
+                    : 'border border-white/[0.07] bg-[#0E0F12]'
+                }`}
+              >
+                <div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-semibold text-white">{p.tier}</span>
+                    {p.highlighted && <span className="text-[10px] font-mono uppercase tracking-widest text-[#3ECF8E]">most used</span>}
+                  </div>
+                  <p className="text-[13px] text-[#93959D] mt-2 leading-relaxed">{p.copy}</p>
+                  <div className="text-4xl font-extrabold tracking-tight text-white mt-6">
+                    {p.price}
+                    {p.price !== 'Custom' && <span className="text-sm font-medium text-[#5A5C64]"> /mo</span>}
+                  </div>
+                  <div className="h-px bg-white/[0.06] my-6" />
+                  <ul className="space-y-3">
+                    {p.items.map((it) => (
+                      <li key={it} className="flex items-center gap-2.5 text-[13px] text-[#C9CBD1] font-mono">
+                        <span className="w-1 h-1 rounded-full bg-[#3ECF8E]" />
+                        {it}
+                      </li>
+                    ))}
+                  </ul>
                 </div>
-                <div style={{ color: '#818cf8' }}>&#125;);</div>
-              </div>
-              <div className="glass-card" style={{ padding: '32px' }}>
-                 <div style={{ fontSize: '24px', fontWeight: 700, marginBottom: '8px' }}>99.999% Reliability</div>
-                 <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: '15px' }}>Enterprise-grade SLA guaranteed for all mission-critical production workflows.</div>
-              </div>
-           </div>
+                <Btn variant={p.variant} className="w-full py-3 mt-8 text-sm" onClick={() => onAction('register')}>
+                  {p.cta}
+                </Btn>
+              </motion.div>
+            ))}
+          </div>
         </div>
       </section>
 
-      {/* Section 2: Features Grid (Bento) */}
-      <section id="features" style={{ padding: '160px 20px', background: '#050505' }}>
-        <div style={{ textAlign: 'center', marginBottom: '100px' }} className="gsap-reveal">
-           <h2 style={{ fontSize: '72px', fontWeight: 800, marginBottom: '24px', letterSpacing: '-0.04em' }}>Built for builders.</h2>
-           <p style={{ fontSize: '22px', color: 'rgba(255,255,255,0.4)', maxWidth: '600px', margin: '0 auto' }}>Every feature you need to orchestrate the modern web.</p>
-        </div>
-
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(12, 1fr)',
-          gridTemplateRows: 'repeat(2, 400px)',
-          gap: '24px',
-          maxWidth: '1400px',
-          margin: '0 auto',
-        }}>
-           {/* Bento 1: Visual Canvas */}
-           <div className="glass-card gsap-reveal" style={{ gridColumn: 'span 8', padding: '50px', position: 'relative', overflow: 'hidden' }}>
-              <div style={{ maxWidth: '400px' }}>
-                <h3 style={{ fontSize: '36px', fontWeight: 800, marginBottom: '20px' }}>The Visual-First Canvas</h3>
-                <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: '18px', lineHeight: 1.6 }}>
-                   Stop wrestling with JSON configuration files. Our high-performance canvas allows you to map out complex logic with intuitive drag-and-drop nodes.
-                </p>
-              </div>
-              <div style={{ position: 'absolute', right: '-40px', bottom: '-40px', width: '400px', height: '300px', background: 'rgba(255,255,255,0.02)', borderRadius: '40px', border: '1px solid rgba(255,255,255,0.05)' }} />
-           </div>
-           
-           {/* Bento 2: Latency */}
-           <div className="glass-card gsap-reveal" style={{ gridColumn: 'span 4', padding: '50px', display: 'flex', flexDirection: 'column', justifyContent: 'center', background: 'linear-gradient(rgba(139,92,246,0.1), transparent)' }}>
-              <div style={{ fontSize: '64px', fontWeight: 800, color: '#a78bfa', marginBottom: '12px' }}>12ms</div>
-              <h3 style={{ fontSize: '24px', fontWeight: 700, marginBottom: '12px' }}>Edge Execution</h3>
-              <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: '16px' }}>Distributed across 40+ global regions for instant responsiveness.</p>
-           </div>
-
-           {/* Bento 3: Monitoring */}
-           <div className="glass-card gsap-reveal" style={{ gridColumn: 'span 5', padding: '50px' }}>
-              <h3 style={{ fontSize: '28px', fontWeight: 800, marginBottom: '16px' }}>Real-time Observability</h3>
-              <p style={{ color: 'rgba(255,255,255,0.5)', lineHeight: 1.6 }}>Granular logs for every request. Watch your data flow through nodes in real-time with our live debug mode.</p>
-              <div style={{ marginTop: '40px', display: 'flex', gap: '8px' }}>
-                 {[1,2,3,4,5].map(i => <div key={i} style={{ flex: 1, height: '4px', background: i < 4 ? '#34d399' : 'rgba(255,255,255,0.1)', borderRadius: '2px' }} />)}
-              </div>
-           </div>
-
-           {/* Bento 4: Integrations */}
-           <div className="glass-card gsap-reveal" style={{ gridColumn: 'span 7', padding: '50px', display: 'flex', gap: '60px', alignItems: 'center' }}>
-              <div style={{ flex: 1 }}>
-                <h3 style={{ fontSize: '32px', fontWeight: 800, marginBottom: '20px' }}>Native Integrations</h3>
-                <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: '17px' }}>Connect to Stripe, Slack, Twilio, and 500+ other services out of the box. Or use our HTTP node for everything else.</p>
-              </div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px' }}>
-                 {[1,2,3,4,5,6,7,8,9].map(i => <div key={i} style={{ width: '48px', height: '48px', borderRadius: '12px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }} />)}
-              </div>
-           </div>
-        </div>
-      </section>
-
-      {/* New Section: How it Works */}
-      <section style={{ padding: '160px 20px', background: '#0a0a0a', borderTop: '1px solid rgba(255,255,255,0.05)', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-        <div style={{ textAlign: 'center', marginBottom: '80px' }} className="gsap-reveal">
-           <h2 style={{ fontSize: '56px', fontWeight: 800, marginBottom: '24px', letterSpacing: '-0.04em' }}>How it works.</h2>
-           <p style={{ fontSize: '20px', color: 'rgba(255,255,255,0.4)', maxWidth: '600px', margin: '0 auto' }}>From concept to production in three simple steps.</p>
-        </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '40px', maxWidth: '1200px', margin: '0 auto' }}>
-           {[
-             { step: '01', title: 'Connect Your Data', desc: 'Drag and drop nodes to connect to your databases, SaaS apps, and internal APIs securely.' },
-             { step: '02', title: 'Define Logic', desc: 'Use visual conditional branching, loops, and data transformation nodes without writing boilerplate.' },
-             { step: '03', title: 'Deploy & Monitor', desc: 'Hit publish to deploy instantly to the edge. Monitor executions with real-time logging.' },
-           ].map((s, i) => (
-             <div key={i} className="gsap-reveal glass-card" style={{ padding: '40px', position: 'relative', overflow: 'hidden' }}>
-                <div style={{ fontSize: '80px', fontWeight: 800, color: 'rgba(255,255,255,0.03)', position: 'absolute', top: '-10px', right: '10px', lineHeight: 1 }}>{s.step}</div>
-                <div style={{ fontSize: '24px', fontWeight: 700, marginBottom: '16px', position: 'relative', zIndex: 1 }}>{s.title}</div>
-                <p style={{ color: 'rgba(255,255,255,0.5)', lineHeight: 1.6, position: 'relative', zIndex: 1 }}>{s.desc}</p>
-             </div>
-           ))}
-        </div>
-      </section>
-
-      {/* New Section: Use Cases */}
-      <section style={{ padding: '160px 20px', maxWidth: '1200px', margin: '0 auto' }}>
-        <div style={{ textAlign: 'center', marginBottom: '100px' }} className="gsap-reveal">
-           <h2 style={{ fontSize: '56px', fontWeight: 800, marginBottom: '24px', letterSpacing: '-0.04em' }}>Endless possibilities.</h2>
-           <p style={{ fontSize: '20px', color: 'rgba(255,255,255,0.4)', maxWidth: '700px', margin: '0 auto' }}>Whether you are a startup or a Fortune 500, DevFlow adapts to your needs.</p>
-        </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '30px' }}>
-           {[
-             { title: 'Automated Onboarding', content: 'Sync user data across your CRM, marketing platform, and internal databases the second they sign up.', color: '#8b5cf6' },
-             { title: 'Real-time Payment Processing', content: 'Listen for Stripe webhooks, validate inventory, and trigger fulfillment logic instantly.', color: '#3b82f6' },
-             { title: 'Data Aggregation', content: 'Fetch data from multiple disparate REST APIs, transform the payload, and cache it in Redis.', color: '#10b981' },
-             { title: 'Alerting & Monitoring', content: 'Set up complex thresholds that trigger multi-channel alerts (Slack, SMS, Email) when anomalies occur.', color: '#f43f5e' },
-           ].map((uc, i) => (
-             <div key={i} className="gsap-reveal" style={{ 
-               padding: '40px', 
-               background: 'rgba(255,255,255,0.02)', 
-               borderRadius: '24px', 
-               borderLeft: `4px solid ${uc.color}`,
-               transition: 'transform 0.3s ease',
-               cursor: 'default'
-             }}
-             onMouseEnter={(e) => e.currentTarget.style.transform = 'translateX(10px)'}
-             onMouseLeave={(e) => e.currentTarget.style.transform = 'translateX(0)'}
-             >
-                <div style={{ fontSize: '22px', fontWeight: 700, marginBottom: '12px' }}>{uc.title}</div>
-                <p style={{ color: 'rgba(255,255,255,0.5)', lineHeight: 1.6 }}>{uc.content}</p>
-             </div>
-           ))}
-        </div>
-      </section>
-
-      {/* Section 3: Deep Dive Text Section */}
-      <section style={{ padding: '160px 20px', maxWidth: '900px', margin: '0 auto', textAlign: 'center' }}>
-         <h2 className="gsap-reveal" style={{ fontSize: '56px', fontWeight: 800, marginBottom: '40px' }}>Why DevFlow?</h2>
-         <div className="gsap-reveal" style={{ display: 'flex', flexDirection: 'column', gap: '48px', textAlign: 'left', color: 'rgba(255,255,255,0.6)', fontSize: '20px', lineHeight: 1.8 }}>
-            <p>
-              The digital landscape is becoming increasingly fragmented. Modern applications aren't single monoliths anymore; they are orchestrations of dozens of third-party APIs, microservices, and serverless functions.
-            </p>
-            <p>
-              Traditional integration tools force you to choose between two extremes: complex, hard-to-maintain code or rigid, "no-code" platforms that don't scale. DevFlow bridges this gap. 
-            </p>
-            <p>
-              We provide the flexibility of code with the speed of a visual interface. Our "Visual Logic" approach allows your entire team—from developers to product managers—to understand exactly how data moves through your system.
-            </p>
-            <blockquote style={{ paddingLeft: '32px', borderLeft: '4px solid #ffffff', color: '#fff', fontSize: '24px', fontWeight: 600, fontStyle: 'italic', margin: '20px 0' }}>
-              "DevFlow has reduced our integration cycle from weeks to hours. It is the most important tool in our stack."
-            </blockquote>
-            <p>
-              Join thousands of teams who have already made the switch. Whether you are building an automated customer onboarding flow, a real-time data sync, or a multi-step financial transaction engine, DevFlow is built for you.
-            </p>
-         </div>
-      </section>
-
-      {/* Section 4: Pricing */}
-      <section id="pricing" style={{ padding: '160px 20px', background: 'linear-gradient(to bottom, #000, #080808)' }}>
-        <div style={{ textAlign: 'center', marginBottom: '80px' }} className="gsap-reveal">
-           <h2 style={{ fontSize: '64px', fontWeight: 800, marginBottom: '20px' }}>Scale with us.</h2>
-           <p style={{ fontSize: '22px', color: 'rgba(255,255,255,0.4)' }}>Flexible plans for every stage of your growth.</p>
-        </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '32px', maxWidth: '1200px', margin: '0 auto' }}>
-           {[
-             { name: 'Developer', price: '$0', desc: 'Perfect for side projects.', features: ['3 Workflows', '10k Runs/mo', 'Standard Support', 'Core HTTP Nodes'] },
-             { name: 'Professional', price: '$99', desc: 'For growing startups.', features: ['Unlimited Workflows', '250k Runs/mo', 'Priority Support', 'Advanced Logic', 'Custom Webhooks'], featured: true },
-             { name: 'Enterprise', price: 'Custom', desc: 'Built for the Fortune 500.', features: ['Unlimited Everything', 'SLA Guarantee', 'Dedicated Manager', 'SSO & IAM', 'On-premise Host'] },
-           ].map(p => (
-             <div key={p.name} className="gsap-reveal glass-card" style={{ padding: '50px', border: p.featured ? '1px solid #6366f1' : '1px solid rgba(255,255,255,0.06)', position: 'relative' }}>
-                {p.featured && <div style={{ position: 'absolute', top: '20px', right: '20px', background: '#6366f1', color: '#fff', padding: '4px 12px', borderRadius: '100px', fontSize: '11px', fontWeight: 800, textTransform: 'uppercase' }}>Popular</div>}
-                <div style={{ fontSize: '20px', fontWeight: 800, marginBottom: '8px' }}>{p.name}</div>
-                <div style={{ fontSize: '14px', color: 'rgba(255,255,255,0.3)', marginBottom: '32px' }}>{p.desc}</div>
-                <div style={{ fontSize: '56px', fontWeight: 800, marginBottom: '40px' }}>{p.price}<span style={{ fontSize: '18px', color: 'rgba(255,255,255,0.2)' }}>{p.price !== 'Custom' ? '/mo' : ''}</span></div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginBottom: '50px' }}>
-                   {p.features.map(f => (
-                     <div key={f} style={{ display: 'flex', gap: '12px', fontSize: '15px', color: 'rgba(255,255,255,0.5)' }}>
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={p.featured ? '#ffffff' : '#444'} strokeWidth="3"><polyline points="20 6 9 17 4 12"/></svg>
-                        {f}
-                     </div>
-                   ))}
-                </div>
-                <button 
-                  onClick={() => onAction('register')}
-                  style={{ width: '100%', padding: '16px', borderRadius: '12px', background: p.featured ? '#fff' : 'rgba(255,255,255,0.05)', color: p.featured ? '#000' : '#fff', border: 'none', fontWeight: 700, cursor: 'pointer', transition: 'all 0.2s ease' }}>
-                  Get Started
+      {/* FAQ */}
+      <section id="faq" className="relative z-10 max-w-3xl mx-auto px-4 py-24">
+        <motion.h2 {...fadeUp} className="text-3xl md:text-5xl font-extrabold tracking-tight text-center mb-14">
+          Questions, answered plainly.
+        </motion.h2>
+        <div className="flex flex-col gap-3">
+          {faqs.map((f, idx) => {
+            const isOpen = activeFaq === idx
+            return (
+              <div key={f.q} className="rounded-xl border border-white/[0.07] bg-[#0E0F12] overflow-hidden">
+                <button
+                  onClick={() => setActiveFaq(isOpen ? null : idx)}
+                  className="w-full flex items-center justify-between gap-4 px-5 py-4 text-left"
+                  aria-expanded={isOpen}
+                >
+                  <span className="text-[14px] font-semibold text-white">{f.q}</span>
+                  <ChevronDown size={16} className={`shrink-0 text-[#5A5C64] transition-transform duration-300 ${isOpen ? 'rotate-180 text-[#3ECF8E]' : ''}`} />
                 </button>
-             </div>
-           ))}
-        </div>
-      </section>
-
-      {/* Section 5: FAQ */}
-      <section style={{ padding: '160px 20px' }}>
-        <div style={{ maxWidth: '850px', margin: '0 auto' }}>
-           <h2 className="gsap-reveal" style={{ fontSize: '48px', fontWeight: 800, marginBottom: '64px', textAlign: 'center' }}>Questions?</h2>
-           <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-              {[
-                { q: 'How is DevFlow different from Zapier?', a: 'Zapier is built for non-technical business automation. DevFlow is built for engineers. We provide lower latency, more granular control over logic, and professional debugging tools.' },
-                { q: 'Can I use my own API keys?', a: 'Absolutely. We never store your clear-text keys. Everything is encrypted at the hardware level using HSMs.' },
-                { q: 'What is your uptime guarantee?', a: 'Our Professional and Enterprise plans come with a 99.99% uptime SLA. We are globally distributed to prevent single points of failure.' },
-                { q: 'Does it support version control?', a: 'Yes. Every change you make is versioned. You can roll back to any previous state of your workflow with a single click.' },
-              ].map((f, i) => (
-                <div key={i} className="gsap-reveal" style={{ padding: '40px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '24px' }}>
-                   <div style={{ fontSize: '20px', fontWeight: 700, marginBottom: '16px' }}>{f.q}</div>
-                   <p style={{ color: 'rgba(255,255,255,0.4)', lineHeight: 1.7, fontSize: '16px' }}>{f.a}</p>
+                <div className={`transition-[max-height,opacity] duration-300 overflow-hidden ${isOpen ? 'max-h-40 opacity-100' : 'max-h-0 opacity-0'}`}>
+                  <p className="px-5 pb-4 text-[13.5px] text-[#93959D] leading-relaxed">{f.a}</p>
                 </div>
-              ))}
-           </div>
+              </div>
+            )
+          })}
         </div>
       </section>
 
       {/* Final CTA */}
-      <section style={{ padding: '160px 20px', textAlign: 'center' }}>
-         <div className="gsap-reveal" style={{
-           maxWidth: '1100px',
-           margin: '0 auto',
-           background: 'linear-gradient(135deg, #111 0%, #000 100%)',
-           padding: '120px 60px',
-           borderRadius: '60px',
-           border: '1px solid rgba(255,255,255,0.1)',
-           position: 'relative',
-           overflow: 'hidden'
-         }}>
-            <h2 style={{ fontSize: '72px', fontWeight: 800, marginBottom: '32px', letterSpacing: '-0.04em' }}>Build the future.</h2>
-            <p style={{ fontSize: '24px', color: 'rgba(255,255,255,0.4)', marginBottom: '64px' }}>Stop building plumbing. Start building product.</p>
-            <button className="primary-btn" style={{ padding: '20px 60px', fontSize: '20px' }} onClick={() => onAction('register')}>
-               Get Started — It's Free
-            </button>
-         </div>
+      <section className="relative z-10 max-w-6xl mx-auto px-4 pb-24">
+        <motion.div {...fadeUp} className="relative rounded-[28px] border border-white/10 bg-[#0E0F12] overflow-hidden px-8 py-16 md:py-20 text-center">
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(62,207,142,0.10)_0%,transparent_60%)]" />
+          <div className="relative">
+            <Eyebrow>Ready when you are</Eyebrow>
+            <h2 className="text-3xl md:text-6xl font-extrabold tracking-tight mt-5 leading-tight">
+              Your next graph is <span className="text-[#3ECF8E]">three minutes</span> away.
+            </h2>
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-3 mt-9">
+              <Btn variant="primary" className="px-8 py-4 text-[15px]" onClick={() => onAction('register')}>
+                Open the canvas <ArrowRight size={16} />
+              </Btn>
+              <Btn variant="secondary" className="px-8 py-4 text-[15px]" onClick={() => onAction('login')}>
+                <CornerDownLeft size={15} /> Sign in
+              </Btn>
+            </div>
+          </div>
+        </motion.div>
       </section>
 
       <Footer />
+
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Inter+Tight:wght@700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
+        .font-sans { font-family: 'Inter', system-ui, sans-serif; }
+        h1, h2, h3 { font-family: 'Inter Tight', 'Inter', system-ui, sans-serif; }
+        .font-mono { font-family: 'JetBrains Mono', ui-monospace, monospace; }
+
+        .devflow2-dots {
+          background-image: radial-gradient(rgba(255,255,255,0.12) 1px, transparent 1px);
+          background-size: 26px 26px;
+          mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, black 40%, transparent 90%);
+        }
+        .devflow2-grain {
+          background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+          background-size: 180px 180px;
+        }
+      `}</style>
     </div>
   )
 }

@@ -17,6 +17,7 @@ import LoginPage from "./pages/LoginPage";
 import DashboardPage from "./pages/DashboardPage";
 import AboutPage from "./pages/AboutPage";
 import ContactPage from "./pages/ContactPage";
+import PricingPage from "./pages/PricingPage";
 import ExecutionHistory from "./components/ui/ExecutionHistory";
 import ExecutionLog from "./components/ui/ExecutionLog";
 import CommandPalette from "./components/ui/CommandPalette";
@@ -119,7 +120,7 @@ function CanvasPage() {
   }, [isAuth, workflowId, storedId]);
 
   return (
-    <div className="canvas-root">
+    <div className="fixed inset-0 w-screen h-screen flex flex-col overflow-hidden bg-[#0B0C0E] z-10">
       <Navbar
         onHome={() => navigate("/dashboard")}
         onHistoryClick={() => setShowHistory(true)}
@@ -129,16 +130,16 @@ function CanvasPage() {
         onBenchmarkClick={() => setShowBenchmark(true)}
       />
       {loading ? (
-        <div className="flex-1 flex flex-col items-center justify-center gap-4 bg-[#0a0a0a]">
-          <div className="w-8 h-8 rounded-full border-2 border-white/10 border-t-white animate-spin" />
-          <span className="text-sm text-white/40 font-medium">
+        <div className="flex-1 flex flex-col items-center justify-center gap-4 bg-[#0B0C0E]">
+          <div className="w-8 h-8 rounded-full border-2 border-white/10 border-t-[#3ECF8E] animate-spin" />
+          <span className="text-sm text-white/40 font-medium font-mono">
             Loading workflow...
           </span>
         </div>
       ) : (
-        <div className="flex flex-1 overflow-hidden relative">
+        <div className="flex flex-1 w-full h-[calc(100vh-52px)] overflow-hidden relative bg-[#0B0C0E]">
           <Sidebar />
-          <div className="flex flex-col flex-1 overflow-hidden relative">
+          <div className="flex flex-col flex-1 h-full min-w-0 overflow-hidden relative bg-[#0B0C0E]">
             <FlowCanvas />
             <ExecutionLog isOpen={showLog} onClose={() => setShowLog(false)} />
           </div>
@@ -191,7 +192,7 @@ function DashboardRoute() {
   };
 
   return (
-    <div className="dashboard-root">
+    <div className="w-full min-h-screen bg-[#0B0C0E] overflow-y-auto overflow-x-hidden">
       <DashboardPage onOpenWorkflow={handleOpenWorkflow} />
     </div>
   );
@@ -207,7 +208,7 @@ function LandingRoute() {
   }, [isAuth]);
 
   return (
-    <div style={{ minHeight: "100vh" }}>
+    <div className="w-full min-h-screen bg-[#0B0C0E] overflow-y-auto overflow-x-hidden">
       <LandingPage onAction={(mode) => navigate(`/${mode}`)} />
     </div>
   );
@@ -223,7 +224,7 @@ function LoginRoute({ mode }: { mode: "login" | "register" }) {
   }, [isAuth]);
 
   return (
-    <div style={{ minHeight: "100vh" }}>
+    <div className="w-full min-h-screen bg-[#0B0C0E] overflow-y-auto overflow-x-hidden">
       <LoginPage initialMode={mode} onBack={() => navigate("/")} />
     </div>
   );
@@ -250,6 +251,7 @@ export default function App() {
         <Route path="/register" element={<LoginRoute mode="register" />} />
         <Route path="/about" element={<AboutPage />} />
         <Route path="/contact" element={<ContactPage />} />
+        <Route path="/pricing" element={<PricingPage />} />
         <Route path="/dashboard" element={<DashboardRoute />} />
         <Route
           path="/canvas/:workflowId"
