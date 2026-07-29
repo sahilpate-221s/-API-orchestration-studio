@@ -30,7 +30,7 @@ export async function register(payload: RegisterPayload) {
 export function logout() {
   localStorage.removeItem('devflow_token')
   localStorage.removeItem('devflow_user')
-  window.location.href = '/login'
+  window.location.href = '/'
 }
 
 export function getStoredUser() {
