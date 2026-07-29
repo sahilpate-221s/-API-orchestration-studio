@@ -76,9 +76,9 @@ function CanvasPage() {
   const [showBenchmark, setShowBenchmark] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  // If not auth, redirect to login
+  // If not auth, redirect to landing page
   useEffect(() => {
-    if (!isAuth) navigate("/login", { replace: true });
+    if (!isAuth) navigate("/", { replace: true });
   }, [isAuth]);
 
   // Fetch workflow data if missing from store but present in URL
@@ -143,7 +143,7 @@ function DashboardRoute() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (!isAuth) navigate("/login", { replace: true });
+    if (!isAuth) navigate("/", { replace: true });
   }, [isAuth]);
 
   const handleOpenWorkflow = (
