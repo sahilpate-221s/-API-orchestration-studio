@@ -290,7 +290,7 @@ export default function FlowCanvas() {
         minZoom={0.1}
         panOnScroll={true}
         zoomOnScroll={true}
-        zoomActivationKeyPressed="Control"
+        zoomActivationKeyCode="Control"
         zoomOnPinch={true}
         zoomOnDoubleClick={false}
         panOnDrag={true}

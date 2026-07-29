@@ -7,16 +7,10 @@ import {
   ArrowLeft,
   CheckCircle2,
   XCircle,
-  Zap,
-  Activity,
   AlertTriangle,
-  Flame,
   Check,
   Search,
-  Layers,
-  GripVertical,
   ChevronRight,
-  TrendingUp,
 } from 'lucide-react'
 
 type NodeResult = {

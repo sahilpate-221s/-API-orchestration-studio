@@ -7,10 +7,6 @@ import {
   ArrowRight,
   Check,
   ChevronDown,
-  CircleDot,
-  HelpCircle,
-  ShieldCheck,
-  Zap,
 } from 'lucide-react'
 
 export default function PricingPage() {

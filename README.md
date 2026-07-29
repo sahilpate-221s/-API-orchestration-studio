@@ -55,7 +55,7 @@ DevFlow is a full-stack visual API orchestration platform where developers can:
 
 | Service | URL |
 |---------|-----|
-| Frontend | https://devflow-studio.netlify.app |
+| Frontend | https://devflowapi.netlify.app/ |
 | Backend API | https://devflow-api.onrender.com |
 | Health Check | https://devflow-api.onrender.com/health |
 

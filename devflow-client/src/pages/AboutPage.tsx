@@ -4,7 +4,6 @@ import Footer from '../components/ui/Footer'
 import {
   ArrowLeft,
   ArrowRight,
-  Boxes,
   Cpu,
   GitMerge,
   Layers,
@@ -12,7 +11,6 @@ import {
   ShieldCheck,
   Terminal,
   Zap,
-  CheckCircle2,
   Workflow,
 } from 'lucide-react'
 
