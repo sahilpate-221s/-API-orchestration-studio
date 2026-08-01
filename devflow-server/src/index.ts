@@ -29,7 +29,11 @@ app.use('/api/loadtest', loadTestRoutes)
 
 // Health check
 app.get('/api/health', (_req: Request, res: Response) => {
-  res.json({ status: 'ok' })
+  res.json({ 
+    status: 'ok', 
+    uptime: process.uptime(),
+    timestamp: new Date().toISOString()
+  })
 })
 
 // Socket connection
