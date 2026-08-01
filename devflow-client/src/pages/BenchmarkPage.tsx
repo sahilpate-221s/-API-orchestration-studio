@@ -1378,35 +1378,6 @@ function LiveChart({ data, color, label, value, height = 72 }: {
   )
 }
 
-function GaugeRing({ pct, color, label, sub }: { pct: number; color: string; label: string; sub: string }) {
-  const r = 22; const circ = 2 * Math.PI * r
-  const off = circ - (Math.min(100, Math.max(0, pct)) / 100) * circ
-  return (
-    <div style={{
-      flex: 1, background: C.surface, border: `1px solid ${C.borderSubtle}`,
-      borderRadius: 14, padding: '14px 12px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6,
-      boxShadow: '0 4px 16px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.04)'
-    }}>
-      <div style={{ position: 'relative', flexShrink: 0 }}>
-        <svg width="56" height="56" viewBox="0 0 56 56">
-          <circle cx="28" cy="28" r={r} fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="4.5" />
-          <circle cx="28" cy="28" r={r} fill="none" stroke={color} strokeWidth="4" strokeDasharray={circ}
-            strokeDashoffset={off} strokeLinecap="round" transform="rotate(-90 28 28)"
-            style={{ transition: 'stroke-dashoffset 0.4s ease, stroke 0.35s ease' }} />
-        </svg>
-        <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <span style={{ fontSize: 11, fontWeight: 800, color: C.textPrimary, fontVariantNumeric: 'tabular-nums', fontFamily: "'JetBrains Mono', monospace" }}>
-            {pct === 0 ? <span style={{ color: C.textMuted, fontWeight: 400, fontSize: 10 }}>—</span> : `${pct}%`}
-          </span>
-        </div>
-      </div>
-      <div style={{ textAlign: 'center' }}>
-        <div style={{ fontSize: 9.5, fontWeight: 700, color: C.textMuted, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 2, fontFamily: "'JetBrains Mono', monospace" }}>{label}</div>
-        <div style={{ fontSize: 10, color: C.textSecondary, fontVariantNumeric: 'tabular-nums', fontFamily: "'JetBrains Mono', monospace" }}>{sub}</div>
-      </div>
-    </div>
-  )
-}
 
 function PatternPreview({ type, active }: { type: 'spike' | 'ramp' | 'wave'; active: boolean }) {
   const stroke = active ? '#3ECF8E' : 'rgba(255,255,255,0.18)'
@@ -1454,7 +1425,7 @@ function Skeleton({ width = '100%', height = 32 }: { width?: string | number; he
 const VU_STEPS = [10, 25, 50, 100, 250, 500, 1_000, 1_500, 2_000, 2_500, 3_000]
 const DUR_PRESETS = [15, 30, 45, 60, 90, 120]
 
-function VuSelector({ value, onChange, durationSecs }: { value: number; onChange: (v: number) => void; durationSecs: number }) {
+function VuSelector({ value, onChange }: { value: number; onChange: (v: number) => void; durationSecs?: number }) {
   const labels: Record<number, string> = {
     10: '10', 25: '25', 50: '50', 100: '100', 250: '250', 500: '500',
     1_000: '1K', 1_500: '1.5K', 2_000: '2K', 2_500: '2.5K', 3_000: '3K'
