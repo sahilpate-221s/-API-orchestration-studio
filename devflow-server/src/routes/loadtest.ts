@@ -39,11 +39,6 @@ router.post('/start', authMiddleware, async (req: AuthRequest, res: Response) =>
       mode: mode as LoadTestMode,
       totalUsers: cappedUsers,
       durationSeconds: cappedDur,
-      serverCores: serverCores ? Math.max(1, Math.min(Number(serverCores), 32)) : undefined,
-      dbPoolLimit: dbPoolLimit ? Math.max(1, Math.min(Number(dbPoolLimit), 10000)) : undefined,
-      maxQueueBacklog: maxQueueBacklog ? Math.max(10, Math.min(Number(maxQueueBacklog), 100000)) : undefined,
-      serverMemoryGB: serverMemoryGB ? Math.max(0.1, Math.min(Number(serverMemoryGB), 128)) : undefined,
-      networkBandwidthMbps: networkBandwidthMbps ? Math.max(10, Math.min(Number(networkBandwidthMbps), 100000)) : undefined,
     }).catch(err => console.error('[LoadTest] fatal:', err))
 
     res.json({ loadTestId, mode, totalUsers: cappedUsers, durationSeconds: cappedDur, message: 'Started' })

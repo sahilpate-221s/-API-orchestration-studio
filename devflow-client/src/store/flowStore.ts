@@ -3,13 +3,25 @@ import { addEdge, applyNodeChanges, applyEdgeChanges, type NodeChange, type Edge
 import type { Connection } from 'reactflow'
 import type { FlowNode, FlowEdge, NodeData, HttpMethod } from '../types'
 
+type HistoryState = {
+  nodes: FlowNode[]
+  edges: FlowEdge[]
+}
+
 type FlowStore = {
   nodes: FlowNode[]
   edges: FlowEdge[]
+  past: HistoryState[]
+  future: HistoryState[]
   selectedNodeId: string | null
   workflowId: string | null
   workflowName: string
   workspace: string
+  
+  undo: () => void
+  redo: () => void
+  saveHistory: () => void
+  
   onNodesChange: (changes: NodeChange[]) => void
   onEdgesChange: (changes: EdgeChange[]) => void
   onConnect: (connection: Connection) => void
@@ -49,16 +61,65 @@ function wouldCreateCycle(edges: FlowEdge[], source: string, target: string): bo
 export const useFlowStore = create<FlowStore>((set, get) => ({
   nodes: [],
   edges: [],
+  past: [],
+  future: [],
   selectedNodeId: null,
   workflowId: null,
   workflowName: 'My First Workflow',
   workspace: 'My Workspace',
 
-  onNodesChange: (changes) =>
-    set({ nodes: applyNodeChanges(changes, get().nodes) as FlowNode[] }),
+  undo: () => {
+    const { past, future, nodes, edges } = get()
+    if (past.length === 0) return
+    const previous = past[past.length - 1]
+    const newPast = past.slice(0, past.length - 1)
+    set({
+      past: newPast,
+      future: [{ nodes, edges }, ...future],
+      nodes: previous.nodes,
+      edges: previous.edges,
+      selectedNodeId: null
+    })
+  },
 
-  onEdgesChange: (changes) =>
-    set({ edges: applyEdgeChanges(changes, get().edges) as FlowEdge[] }),
+  redo: () => {
+    const { past, future, nodes, edges } = get()
+    if (future.length === 0) return
+    const next = future[0]
+    const newFuture = future.slice(1)
+    set({
+      past: [...past, { nodes, edges }],
+      future: newFuture,
+      nodes: next.nodes,
+      edges: next.edges,
+      selectedNodeId: null
+    })
+  },
+
+  saveHistory: () => {
+    set((state) => {
+      // Don't save history if we haven't actually made a change from the last history state
+      // This is a simple deep-ish check just by comparing length or stringify for safety,
+      // but simpler to just push if there are any nodes/edges.
+      // To keep it simple, we just push the current state to past and clear future.
+      return {
+        past: [...state.past, { nodes: state.nodes, edges: state.edges }].slice(-50), // keep last 50
+        future: [],
+      }
+    })
+  },
+
+  onNodesChange: (changes) => {
+    const isMeaningful = changes.some((c) => c.type === 'remove' || c.type === 'add')
+    if (isMeaningful) get().saveHistory()
+    set({ nodes: applyNodeChanges(changes, get().nodes) as FlowNode[] })
+  },
+
+  onEdgesChange: (changes) => {
+    const isMeaningful = changes.some((c) => c.type === 'remove' || c.type === 'add')
+    if (isMeaningful) get().saveHistory()
+    set({ edges: applyEdgeChanges(changes, get().edges) as FlowEdge[] })
+  },
 
   onConnect: (connection) => {
     const { nodes, edges } = get()
@@ -70,6 +131,7 @@ export const useFlowStore = create<FlowStore>((set, get) => ({
     if (edges.some((edge) => edge.source === source && edge.target === target)) return
     if (wouldCreateCycle(edges, source, target)) return
 
+    get().saveHistory()
     set({
       edges: addEdge(
         { ...connection, animated: true, style: { stroke: '#ffffff', strokeWidth: 1.5, strokeOpacity: 0.6 } },
@@ -95,19 +157,25 @@ export const useFlowStore = create<FlowStore>((set, get) => ({
         status: 'idle',
       },
     }
+    get().saveHistory()
     set({ nodes: [...get().nodes, newNode], selectedNodeId: id })
   },
 
-  updateNodeData: (id, data) =>
+  updateNodeData: (id, data) => {
+    get().saveHistory()
     set({
       nodes: get().nodes.map((n) =>
         n.id === id ? { ...n, data: { ...n.data, ...data } } : n
       ),
-    }),
+    })
+  },
 
   setSelectedNode: (id) => set({ selectedNodeId: id }),
   setWorkflowMeta: (id, name, workspace) => set({ workflowId: id, workflowName: name, workspace: workspace || 'My Workspace' }),
-  setFlow: (nodes, edges) => set({ nodes, edges }),
+  setFlow: (nodes, edges) => {
+    get().saveHistory()
+    set({ nodes, edges })
+  },
   exportWorkflow: () => {
     const { nodes, edges, workflowName } = get()
     return JSON.stringify({ name: workflowName, nodes, edges }, null, 2)
@@ -115,6 +183,7 @@ export const useFlowStore = create<FlowStore>((set, get) => ({
   importWorkflow: (json: string | object) => {
     try {
       const data = typeof json === 'string' ? JSON.parse(json) : json
+      get().saveHistory()
       set({
         nodes: data.nodes ?? [],
         edges: data.edges ?? [],
@@ -179,6 +248,7 @@ export const useFlowStore = create<FlowStore>((set, get) => ({
       target: idMap.get(e.target) ?? e.target,
     }))
 
+    get().saveHistory()
     set({
       nodes: [...existingNodes, ...newNodes],
       edges: [...existingEdges, ...newEdges],

@@ -17,12 +17,13 @@ export default function FlowCanvas() {
     nodes, edges,
     onNodesChange, onEdgesChange, onConnect,
     addNode, setSelectedNode,
+    undo, redo, saveHistory
   } = useFlowStore()
 
   const memoNodeTypes = useMemo(() => nodeTypes, [])
   const [zoomLevel, setZoomLevel] = useState(54)
 
-  // Keyboard shortcut listener for Zoom (+ / - / Ctrl+0)
+  // Keyboard shortcut listener for Zoom (+ / - / Ctrl+0) and Undo/Redo
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement
@@ -39,12 +40,19 @@ export default function FlowCanvas() {
       } else if (e.key === '0' && (e.ctrlKey || e.metaKey)) {
         e.preventDefault()
         rfInstance.current?.fitView({ duration: 300, padding: 0.4 })
+      } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
+        e.preventDefault()
+        if (e.shiftKey) redo()
+        else undo()
+      } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'y') {
+        e.preventDefault()
+        redo()
       }
     }
 
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [])
+  }, [undo, redo])
 
   const onDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault()
@@ -288,6 +296,7 @@ export default function FlowCanvas() {
         onNodeClick={onNodeClick}
         onPaneClick={onPaneClick}
         onMove={handleMove}
+        onNodeDragStart={() => saveHistory()}
         nodeTypes={memoNodeTypes}
         fitView
         fitViewOptions={{ padding: 0.5, maxZoom: 0.54 }}

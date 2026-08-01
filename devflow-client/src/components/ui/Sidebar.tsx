@@ -67,6 +67,234 @@ function Chevron({ open }: { open: boolean }) {
 type CustomTemplate = { _id: string; name: string; description: string; nodes: FlowNode[]; edges: FlowEdge[] }
 type TooltipState = { label: string; top: number; left: number } | null
 
+function AIWorkflowGenerator({ mergeTemplate }: { mergeTemplate: (nodes: FlowNode[], edges: FlowEdge[]) => void }) {
+  const [prompt, setPrompt] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [explanation, setExplanation] = useState('')
+  const [error, setError] = useState('')
+
+  const generate = async () => {
+    if (!prompt.trim() || loading) return
+    setLoading(true)
+    setError('')
+    setExplanation('')
+
+    try {
+      const res = await api.post('/ai/generate-workflow', { description: prompt })
+      const { workflow } = res.data
+
+      // Convert AI response nodes to FlowNode format
+      const flowNodes: FlowNode[] = workflow.nodes.map((n: any) => ({
+        id: `ai-${n.id}-${Date.now()}`,
+        type: 'apiNode',
+        position: n.position,
+        data: {
+          label: n.label,
+          method: n.method as any,
+          url: n.url,
+          status: 'idle' as const,
+          headers: n.headers ?? {},
+          body: n.body ?? '',
+        },
+      }))
+
+      // Build id map for edges (old id → new id)
+      const idMap = new Map<string, string>()
+      workflow.nodes.forEach((n: any, i: number) => {
+        idMap.set(n.id, flowNodes[i].id)
+      })
+
+      // Convert edges
+      const flowEdges: FlowEdge[] = workflow.edges.map((e: any, i: number) => ({
+        id: `ai-edge-${i}-${Date.now()}`,
+        source: idMap.get(e.source) ?? e.source,
+        target: idMap.get(e.target) ?? e.target,
+        animated: true,
+        style: { stroke: '#3ECF8E', strokeWidth: 1.5 },
+      }))
+
+      mergeTemplate(flowNodes, flowEdges)
+      setExplanation(workflow.explanation)
+      setPrompt('')
+    } catch (err) {
+      setError('Failed to generate workflow. Try again.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div style={{ marginTop: '20px', marginBottom: '4px', display: 'flex', flexDirection: 'column', gap: '8px', flexShrink: 0 }}>
+      {/* Section header */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', paddingLeft: '4px' }}>
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#3ECF8E" strokeWidth="2.5">
+          <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z" />
+        </svg>
+        <span style={{ fontSize: '8px', fontWeight: 700, letterSpacing: '0.14em', color: '#5A5C64', textTransform: 'uppercase', fontFamily: "'JetBrains Mono', monospace" }}>
+          AI Workflow
+        </span>
+      </div>
+
+      {/* Input area */}
+      <div style={{ position: 'relative' }}>
+        <textarea
+          value={prompt}
+          onChange={e => setPrompt(e.target.value)}
+          onKeyDown={e => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+              e.preventDefault()
+              generate()
+            }
+          }}
+          placeholder='Describe a workflow... e.g. "Fetch a user, get their posts, then send results to a webhook"'
+          disabled={loading}
+          rows={5}
+          style={{
+            width: '100%',
+            background: 'rgba(255,255,255,0.03)',
+            border: '1px solid rgba(255,255,255,0.09)',
+            borderRadius: '10px',
+            padding: '10px 12px',
+            paddingBottom: '36px',
+            fontSize: '11px',
+            color: '#F2F3F5',
+            outline: 'none',
+            fontFamily: 'inherit',
+            resize: 'none',
+            boxSizing: 'border-box',
+            lineHeight: 1.5,
+            transition: 'border-color 0.15s ease',
+            opacity: loading ? 0.6 : 1,
+            overflow: 'hidden',
+          }}
+          onFocus={e => { e.currentTarget.style.borderColor = 'rgba(62,207,142,0.45)' }}
+          onBlur={e => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.09)' }}
+        />
+
+        {/* Generate button inside textarea */}
+        <button
+          onClick={generate}
+          disabled={!prompt.trim() || loading}
+          style={{
+            position: 'absolute',
+            bottom: '8px',
+            right: '8px',
+            padding: '4px 10px',
+            borderRadius: '7px',
+            background: prompt.trim() && !loading ? '#3ECF8E' : 'rgba(255,255,255,0.05)',
+            border: 'none',
+            color: prompt.trim() && !loading ? '#06110C' : '#5A5C64',
+            fontSize: '10px',
+            fontWeight: 700,
+            cursor: prompt.trim() && !loading ? 'pointer' : 'not-allowed',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '5px',
+            transition: 'all 0.15s ease',
+            fontFamily: 'inherit',
+          }}
+        >
+          {loading ? (
+            <>
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"
+                style={{ animation: 'spin 1s linear infinite' }}>
+                <path d="M21 12a9 9 0 11-6.219-8.56" />
+              </svg>
+              Building...
+            </>
+          ) : (
+            <>
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z" />
+              </svg>
+              Generate
+            </>
+          )}
+        </button>
+      </div>
+
+      {/* Success explanation */}
+      {explanation && !loading && (
+        <div style={{
+          padding: '8px 10px',
+          background: 'rgba(62,207,142,0.06)',
+          border: '1px solid rgba(62,207,142,0.18)',
+          borderRadius: '8px',
+          fontSize: '10px',
+          color: '#3ECF8E',
+          lineHeight: 1.5,
+          display: 'flex',
+          gap: '6px',
+          alignItems: 'flex-start'
+        }}>
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#3ECF8E" strokeWidth="2.5" style={{ flexShrink: 0, marginTop: '1px' }}>
+            <polyline points="20 6 9 17 4 12" />
+          </svg>
+          {explanation}
+        </div>
+      )}
+
+      {/* Error */}
+      {error && (
+        <div style={{
+          padding: '8px 10px',
+          background: 'rgba(226,75,74,0.06)',
+          border: '1px solid rgba(226,75,74,0.18)',
+          borderRadius: '8px',
+          fontSize: '10px',
+          color: '#E24B4A',
+          lineHeight: 1.5
+        }}>
+          {error}
+        </div>
+      )}
+
+      {/* Hint examples */}
+      {!explanation && !error && !loading && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+          {[
+            'Fetch user then get their posts',
+            'Login and get profile data',
+            'Create order then confirm it',
+          ].map(hint => (
+            <button
+              key={hint}
+              onClick={() => setPrompt(hint)}
+              style={{
+                textAlign: 'left',
+                background: 'none',
+                border: 'none',
+                padding: '3px 4px',
+                fontSize: '9.5px',
+                color: '#5A5C64',
+                cursor: 'pointer',
+                fontFamily: 'inherit',
+                borderRadius: '4px',
+                transition: 'color 0.12s ease',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '5px',
+              }}
+              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = '#93959D' }}
+              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = '#5A5C64' }}
+            >
+              <span style={{ color: '#3ECF8E', fontSize: '8px' }}>→</span>
+              {hint}
+            </button>
+          ))}
+        </div>
+      )}
+
+      <style>{`
+        @keyframes spin {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
+      `}</style>
+    </div>
+  )
+}
+
 export default function Sidebar() {
   const { nodes, edges, exportWorkflow, importWorkflow, mergeTemplate } = useFlowStore()
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -83,6 +311,7 @@ export default function Sidebar() {
   const [newTplName, setNewTplName] = useState('')
   const [newTplDesc, setNewTplDesc] = useState('')
   const [saving, setSaving] = useState(false)
+  const [nodeLibOpen, setNodeLibOpen] = useState(true)
 
   // Dynamic Sidebar Resizing Handler (Drag Right/Left)
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
@@ -262,15 +491,19 @@ export default function Sidebar() {
         </svg>
       </button>
 
-      {/* Node Library label */}
-      <div style={{ padding: expanded ? '12px 14px 0 14px' : '12px 0 0 0', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px', flexShrink: 0, justifyContent: expanded ? 'flex-start' : 'center' }}>
+      {/* Node Library label — collapsible */}
+      <div
+        onClick={() => expanded && setNodeLibOpen(p => !p)}
+        style={{ padding: expanded ? '12px 14px 0 14px' : '12px 0 0 0', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px', flexShrink: 0, justifyContent: expanded ? 'flex-start' : 'center', cursor: expanded ? 'pointer' : 'default', userSelect: 'none' }}
+      >
+        {expanded && <Chevron open={nodeLibOpen} />}
         <span style={{ fontSize: '8px', fontWeight: 700, letterSpacing: '0.14em', color: '#5A5C64', textTransform: 'uppercase', userSelect: 'none', whiteSpace: 'nowrap', fontFamily: "'JetBrains Mono', monospace" }}>{expanded ? 'Node Library' : 'API'}</span>
       </div>
 
       {/* Scrollable content */}
       <div className="custom-scrollbar" style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '3px', padding: expanded ? '0 10px' : '0 8px', overflowY: 'auto', overflowX: 'hidden' }}>
         {/* Node items */}
-        {nodeLibrary.map((node) => {
+        {(!expanded || nodeLibOpen) && nodeLibrary.map((node) => {
           const isH = hoveredMethod === node.method
           return (
             <div
@@ -279,18 +512,23 @@ export default function Sidebar() {
               onDragStart={(e) => onDragStart(e, node.method)}
               onMouseEnter={(e) => { setHoveredMethod(node.method); showTooltip(e, node.label) }}
               onMouseLeave={() => { setHoveredMethod(null); hideTooltip() }}
-              style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: expanded ? '7px 8px' : '6px 0', borderRadius: '8px', background: isH ? node.bg : 'transparent', border: `1px solid ${isH ? node.border : 'transparent'}`, cursor: 'grab', transition: 'background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease', boxShadow: isH ? `0 0 14px ${node.glow}` : 'none', userSelect: 'none', justifyContent: expanded ? 'flex-start' : 'center', flexShrink: 0, position: 'relative' }}
+              style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: expanded ? '7px 8px' : '6px 0', borderRadius: '8px', background: isH ? node.bg : 'transparent', border: `1px solid ${isH ? node.border : 'transparent'}`, cursor: 'grab', transition: 'background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease', boxShadow: isH ? `0 0 14px ${node.glow}` : 'none', userSelect: 'none', justifyContent: expanded ? 'flex-start' : 'center', flexShrink: 0, position: 'relative', width: '100%', boxSizing: 'border-box' }}
             >
               <div style={{ minWidth: expanded ? '34px' : '36px', height: '20px', borderRadius: '5px', background: node.bg, border: `1px solid ${node.border}`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                 <span style={{ fontSize: '7.5px', fontWeight: 700, letterSpacing: '0.06em', color: node.color, lineHeight: 1, fontFamily: "'JetBrains Mono', monospace" }}>{node.method}</span>
               </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '1px', overflow: 'hidden', maxWidth: expanded ? `${sidebarWidth - 68}px` : '0px', opacity: expanded ? 1 : 0, transition: 'max-width 0.22s ease, opacity 0.15s ease' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1px', overflow: 'hidden', flex: expanded ? 1 : 0, minWidth: 0, opacity: expanded ? 1 : 0, transition: 'flex 0.22s ease, opacity 0.15s ease' }}>
                 <span style={{ fontSize: '12px', fontWeight: 500, color: isH ? '#F2F3F5' : '#C9CBD1', whiteSpace: 'nowrap', transition: 'color 0.15s ease', lineHeight: 1.2 }}>{node.label}</span>
                 <span style={{ fontSize: '10px', color: '#5A5C64', whiteSpace: 'nowrap', lineHeight: 1.2 }}>{node.desc}</span>
               </div>
             </div>
           )
         })}
+
+        {/* AI Workflow Generator */}
+        {expanded && (
+          <AIWorkflowGenerator mergeTemplate={mergeTemplate} />
+        )}
 
         {/* Built-in Templates */}
         {expanded && (

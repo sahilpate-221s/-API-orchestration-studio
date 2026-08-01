@@ -338,9 +338,7 @@ export default function LandingPage({ onAction }: { onAction: (mode: Mode) => vo
           </nav>
 
           <div className="hidden md:flex items-center gap-2">
-            <button className="flex items-center gap-2 px-3 py-1.5 rounded-full border border-white/10 bg-white/[0.03] text-[#5A5C64] hover:text-white hover:border-white/20 transition-colors text-xs font-mono">
-              <Search size={12} /> <Command size={11} />K
-            </button>
+
             <Btn variant="ghost" className="px-3 py-1.5 text-[13px]" onClick={() => onAction('login')}>Sign in</Btn>
             <Btn variant="primary" className="px-4 py-1.5 text-[13px]" onClick={() => onAction('register')}>
               Start free <ArrowRight size={14} />
