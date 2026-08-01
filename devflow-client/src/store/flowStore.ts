@@ -58,6 +58,16 @@ function wouldCreateCycle(edges: FlowEdge[], source: string, target: string): bo
   return false
 }
 
+/** Extract protocol + host from a URL, e.g. "https://api.example.com/users" → "https://api.example.com" */
+function getBaseUrl(url: string): string {
+  try {
+    const u = new URL(url)
+    return u.origin  // e.g. "https://api.example.com"
+  } catch {
+    return ''
+  }
+}
+
 export const useFlowStore = create<FlowStore>((set, get) => ({
   nodes: [],
   edges: [],
@@ -131,7 +141,65 @@ export const useFlowStore = create<FlowStore>((set, get) => ({
     if (edges.some((edge) => edge.source === source && edge.target === target)) return
     if (wouldCreateCycle(edges, source, target)) return
 
+    const sourceNode = nodes.find((n) => n.id === source)
+    const targetNode = nodes.find((n) => n.id === target)
+
     get().saveHistory()
+
+    // --- Auto-propagate source data to target (only fill empty / default fields) ---
+    if (sourceNode && targetNode) {
+      const srcData = sourceNode.data
+      const tgtData = targetNode.data
+      const patch: Partial<NodeData> = {}
+
+      // 1. Merge headers — add source keys the target doesn't already have
+      const srcHeaders = srcData.headers ?? {}
+      const tgtHeaders = tgtData.headers ?? {}
+      if (Object.keys(srcHeaders).length > 0) {
+        const merged = { ...tgtHeaders }
+        let changed = false
+        for (const [key, val] of Object.entries(srcHeaders)) {
+          if (!(key in merged)) {
+            merged[key] = val
+            changed = true
+          }
+        }
+        if (changed) patch.headers = merged
+      }
+
+      // 2. Copy auth config if target is 'none' (default)
+      const srcAuth = srcData.authConfig
+      const tgtAuth = tgtData.authConfig
+      if (srcAuth && srcAuth.type !== 'none' && (!tgtAuth || tgtAuth.type === 'none')) {
+        patch.authConfig = { ...srcAuth }
+      }
+
+      // 3. Pre-fill base URL if target URL is empty
+      if (!tgtData.url && srcData.url) {
+        const base = getBaseUrl(srcData.url)
+        if (base) patch.url = base
+      }
+
+      // 4. Copy bodyType if target hasn't set one (or is still default)
+      if (srcData.bodyType && srcData.bodyType !== 'none' && (!tgtData.bodyType || tgtData.bodyType === 'none')) {
+        patch.bodyType = srcData.bodyType
+      }
+
+      // Apply the propagated data to the target node
+      if (Object.keys(patch).length > 0) {
+        set({
+          nodes: nodes.map((n) =>
+            n.id === target ? { ...n, data: { ...n.data, ...patch } } : n
+          ),
+          edges: addEdge(
+            { ...connection, animated: true, style: { stroke: '#ffffff', strokeWidth: 1.5, strokeOpacity: 0.6 } },
+            edges
+          ) as FlowEdge[],
+        })
+        return
+      }
+    }
+
     set({
       edges: addEdge(
         { ...connection, animated: true, style: { stroke: '#ffffff', strokeWidth: 1.5, strokeOpacity: 0.6 } },

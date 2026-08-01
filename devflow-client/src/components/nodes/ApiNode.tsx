@@ -1,6 +1,8 @@
+import { useState } from 'react'
 import { Handle, Position } from 'reactflow'
 import type { NodeProps } from 'reactflow'
 import type { NodeData } from '../../types'
+import { useFlowStore } from '../../store/flowStore'
 
 const methodConfig: Record<string, {
   color: string
@@ -22,27 +24,69 @@ const statusDot: Record<string, { color: string; pulse: boolean; label: string }
   error: { color: '#f87171', pulse: false, label: 'Failed' },
 }
 
-export default function ApiNode({ data, selected }: NodeProps<NodeData>) {
+export default function ApiNode({ id, data, selected }: NodeProps<NodeData>) {
   const { label, method, url, status, executionTime, fromCache } = data
   const m = methodConfig[method] ?? methodConfig.GET
   const s = statusDot[status] ?? statusDot.idle
 
+  const [isHovered, setIsHovered] = useState(false)
+  const { onNodesChange } = useFlowStore()
+
+  const handleDelete = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    onNodesChange([{ type: 'remove', id }])
+  }
+
   return (
     <div
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
       style={{
         width: '180px',
         borderRadius: '8px',
         background: '#111111',
-        border: `1px solid ${selected ? 'rgba(255,255,255,0.45)' : 'rgba(255,255,255,0.07)'}`,
-        boxShadow: selected
+        border: `1px solid ${selected || isHovered ? 'rgba(255,255,255,0.45)' : 'rgba(255,255,255,0.07)'}`,
+        boxShadow: selected || isHovered
           ? `0 0 0 3px rgba(255,255,255,0.04), 0 12px 32px rgba(0,0,0,0.7)`
           : '0 4px 15px rgba(0,0,0,0.4)',
-        overflow: 'hidden',
+        overflow: 'visible',
         transition: 'all 0.15s cubic-bezier(0.4, 0, 0.2, 1)',
         cursor: 'pointer',
         position: 'relative',
       }}
     >
+      {isHovered && (
+        <button
+          onClick={handleDelete}
+          style={{
+            position: 'absolute',
+            top: '-8px',
+            right: '-8px',
+            width: '20px',
+            height: '20px',
+            borderRadius: '50%',
+            background: '#E24B4A',
+            border: '2px solid #111111',
+            color: '#fff',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            cursor: 'pointer',
+            zIndex: 10,
+            padding: 0,
+            boxShadow: '0 2px 5px rgba(0,0,0,0.5)',
+            transition: 'background 0.1s ease',
+          }}
+          onMouseEnter={(e) => { e.currentTarget.style.background = '#f87171' }}
+          onMouseLeave={(e) => { e.currentTarget.style.background = '#E24B4A' }}
+          title="Delete Node"
+        >
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
+      )}
       {/* Colored left accent bar */}
       <div
         style={{
@@ -168,7 +212,7 @@ export default function ApiNode({ data, selected }: NodeProps<NodeData>) {
 
       {/* Footer */}
       {(executionTime !== undefined || status === 'error' || status === 'success') && (
-        <div style={{ padding: '5px 14px', background: 'rgba(255,255,255,0.02)', borderTop: '1px solid rgba(255,255,255,0.04)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div style={{ padding: '5px 14px', background: 'rgba(255,255,255,0.02)', borderTop: '1px solid rgba(255,255,255,0.04)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderRadius: '0 0 8px 8px' }}>
             <div style={{ fontSize: '9px', color: 'rgba(255,255,255,0.4)', fontWeight: 500 }}>
               {fromCache ? (
                 <div title="cached" style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#f97316', boxShadow: '0 0 6px #f97316', display: 'inline-block' }} />
