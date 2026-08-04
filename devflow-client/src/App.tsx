@@ -21,6 +21,7 @@ import PricingPage from "./pages/PricingPage";
 import ExecutionHistory from "./components/ui/ExecutionHistory";
 import ExecutionLog from "./components/ui/ExecutionLog";
 import BenchmarkPage from "./pages/BenchmarkPage";
+import SettingsPage from "./pages/SettingsPage";
 import { useFlowStore } from "./store/flowStore";
 import { useExecution } from "./hooks/useExecution";
 import { useAuthStore } from "./store/authStore";
@@ -197,6 +198,22 @@ function LoginRoute({ mode }: { mode: "login" | "register" }) {
   );
 }
 
+/* ── Settings page wrapper ── */
+function SettingsRoute() {
+  const { isAuth } = useAuthStore();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (!isAuth) navigate("/", { replace: true });
+  }, [isAuth]);
+
+  return (
+    <div className="w-full min-h-screen bg-[#0B0C0E] overflow-y-auto overflow-x-hidden">
+      <SettingsPage />
+    </div>
+  );
+}
+
 /* ── Root App ── */
 export default function App() {
   useEffect(() => {
@@ -220,6 +237,7 @@ export default function App() {
         <Route path="/contact" element={<ContactPage />} />
         <Route path="/pricing" element={<PricingPage />} />
         <Route path="/dashboard" element={<DashboardRoute />} />
+        <Route path="/settings" element={<SettingsRoute />} />
         <Route
           path="/canvas/:workflowId"
           element={

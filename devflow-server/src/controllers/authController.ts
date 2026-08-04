@@ -47,6 +47,11 @@ export async function login(req: Request, res: Response): Promise<void> {
       return
     }
 
+    if (user.isDisabled) {
+      res.status(403).json({ message: 'Account is disabled. Please contact support to reactivate.' })
+      return
+    }
+
     const token = signToken(String(user._id), user.email)
     res.json({ token, user })
   } catch (err) {

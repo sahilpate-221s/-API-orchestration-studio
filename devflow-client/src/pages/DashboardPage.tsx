@@ -199,6 +199,33 @@ const CSS = `
   font-weight: 700;
   font-family: 'JetBrains Mono', monospace;
   flex: 0 0 auto;
+  overflow: hidden;
+}
+
+.db-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.db-settings-btn {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,0.08);
+  background: rgba(255,255,255,0.03);
+  color: #93959D;
+  cursor: pointer;
+  transition: all 0.16s ease;
+  text-decoration: none;
+}
+
+.db-settings-btn:hover {
+  background: rgba(255,255,255,0.08);
+  border-color: rgba(255,255,255,0.18);
+  color: #F2F3F5;
 }
 
 .db-btn {
@@ -907,12 +934,24 @@ export default function DashboardPage({ onOpenWorkflow }: Props) {
 
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'flex-end' }}>
               <div className="db-user">
-                <div className="db-avatar">{initials}</div>
+                <div className="db-avatar">
+                  {user?.avatarUrl ? (
+                    <img src={user.avatarUrl} alt={firstName} />
+                  ) : (
+                    initials
+                  )}
+                </div>
                 <div className="db-user-text" style={{ minWidth: 0 }}>
                   <div style={{ fontSize: 12, fontWeight: 600 }}>{firstName}</div>
                   <div className="db-muted" style={{ fontSize: 10.5, maxWidth: 170, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user?.email}</div>
                 </div>
               </div>
+              <Link to="/settings" className="db-settings-btn" title="Account Settings">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
+                  <circle cx="12" cy="12" r="3" />
+                </svg>
+              </Link>
               <button className="db-btn" onClick={clearAuth}>Sign out</button>
             </div>
           </div>

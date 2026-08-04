@@ -5,6 +5,8 @@ export interface IUser extends Document {
   email: string
   password: string
   name: string
+  avatarUrl?: string
+  isDisabled: boolean
   createdAt: Date
   comparePassword(candidate: string): Promise<boolean>
 }
@@ -13,6 +15,8 @@ const UserSchema = new Schema<IUser>({
   email: { type: String, required: true, unique: true, lowercase: true, trim: true },
   password: { type: String, required: true, minlength: 6 },
   name: { type: String, required: true, trim: true },
+  avatarUrl: { type: String, default: '' },
+  isDisabled: { type: Boolean, default: false },
 }, { timestamps: true })
 
 // Hash password before save

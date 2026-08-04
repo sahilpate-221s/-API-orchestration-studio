@@ -8,6 +8,7 @@ import executionRoutes from './routes/execution'
 import aiRoutes from './routes/ai'
 import loadTestRoutes from './routes/loadtest'
 import templateRoutes from './routes/templates'
+import userRoutes from './routes/user'
 import { app, httpServer, io } from './socket'
 import './config/redis'
 import { apiRateLimit } from './middleware/rateLimits'
@@ -26,6 +27,7 @@ app.use('/api/execution', executionRoutes)
 app.use('/api/ai', aiRoutes)
 app.use('/api/templates', templateRoutes)
 app.use('/api/loadtest', loadTestRoutes)
+app.use('/api/user', userRoutes)
 
 // Health check
 app.get('/api/health', (_req: Request, res: Response) => {

@@ -6,6 +6,7 @@ type User = {
   id?: string
   email: string
   name: string
+  avatarUrl?: string
 }
 
 type AuthStore = {
@@ -13,9 +14,10 @@ type AuthStore = {
   isAuth: boolean
   setAuth: (user: User, token: string) => void
   clearAuth: () => void
+  updateUser: (partial: Partial<User>) => void
 }
 
-export const useAuthStore = create<AuthStore>((set) => {
+export const useAuthStore = create<AuthStore>((set, get) => {
   window.addEventListener('devflow:unauthorized', () => {
     logout()
     set({ user: null, isAuth: false })
@@ -35,5 +37,13 @@ export const useAuthStore = create<AuthStore>((set) => {
       logout()
       set({ user: null, isAuth: false })
     },
+
+    updateUser: (partial) => {
+      const current = get().user
+      if (!current) return
+      const updated = { ...current, ...partial }
+      localStorage.setItem('devflow_user', JSON.stringify(updated))
+      set({ user: updated })
+    },
   }
-})
+})
