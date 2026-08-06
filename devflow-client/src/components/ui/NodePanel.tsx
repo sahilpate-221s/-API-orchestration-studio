@@ -552,7 +552,7 @@ function HeadersEditor({ value, onChange, inputStyle }: { value: Record<string, 
 }
 
 function ConditionPanel({ node, onClose }: { node: any; onClose: () => void }) {
-  const { nodes, updateNodeData, setSelectedNode } = useFlowStore()
+  const { nodes, updateNodeData } = useFlowStore()
   const data: ConditionData = node.data
 
   const upd = (field: string, value: unknown) => {

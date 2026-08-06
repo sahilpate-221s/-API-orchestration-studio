@@ -799,7 +799,6 @@ function LockIcon() {
 }
 
 export default function SettingsPage() {
-  const navigate = useNavigate()
   const { user, clearAuth, updateUser, setAuth } = useAuthStore()
 
   // ── Profile state ──
