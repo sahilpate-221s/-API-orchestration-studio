@@ -38,10 +38,10 @@
 //     return JSON.parse(cleaned)
 //   } catch (error) {
 //     console.warn('OpenAI API failed (likely quota exceeded). Using local heuristic fallback.')
-    
+
 //     // Heuristic fallback so it reacts to the prompt without needing a working API key
 //     const lower = description.toLowerCase()
-    
+
 //     let method = 'GET'
 //     if (lower.includes('post') || lower.includes('create') || lower.includes('add')) method = 'POST'
 //     else if (lower.includes('put') || lower.includes('update')) method = 'PUT'
@@ -449,6 +449,180 @@ Rules:
       nodes,
       edges,
       explanation: `Generated a ${nodes.length}-step workflow based on your description.`
+    }
+  }
+}
+
+
+
+export async function generateWorkflowFromOpenAPI(
+  spec: any,
+  userPrompt?: string
+): Promise<{
+  nodes: Array<{
+    id: string
+    label: string
+    method: string
+    url: string
+    headers: Record<string, string>
+    body: string
+    position: { x: number; y: number }
+  }>
+  edges: Array<{ source: string; target: string }>
+  explanation: string
+}> {
+  // Extract endpoints from spec
+  const endpoints: Array<{
+    method: string
+    path: string
+    summary: string
+    parameters: any[]
+    requestBody: any
+    operationId: string
+  }> = []
+
+  const basePath = spec.basePath ?? ''
+  const servers = spec.servers ?? []
+  const baseUrl = servers.length > 0
+    ? servers[0].url
+    : (spec.host ? `https://${spec.host}${basePath}` : 'https://api.example.com')
+
+  const paths = spec.paths ?? {}
+
+  for (const [path, pathItem] of Object.entries(paths as Record<string, any>)) {
+    const methods = ['get', 'post', 'put', 'delete', 'patch']
+    for (const method of methods) {
+      const operation = pathItem[method]
+      if (!operation) continue
+      endpoints.push({
+        method: method.toUpperCase(),
+        path,
+        summary: operation.summary ?? operation.operationId ?? path,
+        parameters: operation.parameters ?? [],
+        requestBody: operation.requestBody ?? null,
+        operationId: operation.operationId ?? `${method}${path}`,
+      })
+    }
+  }
+
+  if (endpoints.length === 0) {
+    throw new Error('No endpoints found in the OpenAPI spec')
+  }
+
+  // Build a compact endpoint list for the AI prompt
+  const endpointSummary = endpoints.slice(0, 30).map(e =>
+    `${e.method} ${e.path} — ${e.summary}`
+  ).join('\n')
+
+  const systemPrompt = `You are a workflow generator for DevFlow, a visual API orchestration tool.
+
+You are given a list of API endpoints from an OpenAPI/Swagger specification and a user request.
+Your job is to select the most relevant endpoints and connect them into a logical workflow.
+
+Available endpoints:
+${endpointSummary}
+
+Base URL: ${baseUrl}
+
+Return ONLY a valid JSON object with this exact structure:
+{
+  "nodes": [
+    {
+      "id": "node1",
+      "label": "Short action label",
+      "method": "GET|POST|PUT|DELETE|PATCH",
+      "url": "full URL with base URL prepended, replace {param} with realistic example values",
+      "headers": { "Content-Type": "application/json" },
+      "body": "JSON string for POST/PUT body based on the schema, or empty string",
+      "position": { "x": 100, "y": 200 }
+    }
+  ],
+  "edges": [
+    { "source": "node1", "target": "node2" }
+  ],
+  "explanation": "One sentence describing what this workflow does"
+}
+
+Rules:
+- Select 2 to 5 most relevant endpoints for the user's request
+- Position nodes horizontally: first node x=100, increment x by 380 per node
+- All nodes at y=200 unless parallel (offset y by ±200)
+- Replace path params like {userId} with realistic values like 1 or "abc123"  
+- For POST/PUT bodies, use the requestBody schema to generate realistic sample JSON
+- Labels should be short action phrases: "Get User", "Create Order"
+- No text outside the JSON. No markdown. Raw JSON only.`
+
+  const userMessage = userPrompt
+    ? `User request: ${userPrompt}`
+    : `Generate the most logical workflow using the available endpoints. Pick endpoints that work well together in sequence.`
+
+  try {
+    const completion = await openai.chat.completions.create({
+      model: 'gpt-4o-mini',
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userMessage }
+      ],
+      temperature: 0.3,
+      max_tokens: 2000,
+    })
+
+    const raw = completion.choices[0].message.content ?? '{}'
+    const cleaned = raw.replace(/^```json\n?/, '').replace(/\n?```$/, '').trim()
+    const parsed = JSON.parse(cleaned)
+
+    if (!parsed.nodes || !Array.isArray(parsed.nodes) || parsed.nodes.length === 0) {
+      throw new Error('Invalid workflow from AI')
+    }
+
+    return parsed
+
+  } catch (error) {
+    console.warn('OpenAI failed for OpenAPI import. Using heuristic fallback.')
+
+    // Fallback — pick first 3 endpoints and chain them
+    const picked = endpoints.slice(0, 3)
+    const nodes = picked.map((e, i) => {
+      let body = ''
+      if (['POST', 'PUT', 'PATCH'].includes(e.method) && e.requestBody) {
+        try {
+          const schema = e.requestBody?.content?.['application/json']?.schema
+          if (schema?.example) {
+            body = JSON.stringify(schema.example)
+          } else {
+            body = JSON.stringify({ id: 1, name: 'Sample', value: 'test' })
+          }
+        } catch {
+          body = '{}'
+        }
+      }
+
+      // Replace path params with sample values
+      const url = `${baseUrl}${e.path}`.replace(/\{([^}]+)\}/g, (_match, param) => {
+        if (param.toLowerCase().includes('id')) return '1'
+        return 'sample'
+      })
+
+      return {
+        id: `node${i + 1}`,
+        label: e.summary.slice(0, 30),
+        method: e.method,
+        url,
+        headers: { 'Content-Type': 'application/json' },
+        body,
+        position: { x: 100 + i * 380, y: 200 }
+      }
+    })
+
+    const edges = nodes.slice(0, -1).map((_, i) => ({
+      source: `node${i + 1}`,
+      target: `node${i + 2}`
+    }))
+
+    return {
+      nodes,
+      edges,
+      explanation: `Generated workflow from ${nodes.length} endpoints in the OpenAPI spec.`
     }
   }
 }
