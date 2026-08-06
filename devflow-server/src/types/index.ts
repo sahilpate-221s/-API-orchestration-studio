@@ -2,6 +2,24 @@ import { Request } from 'express'
 
 export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH'
 export type NodeStatus = 'idle' | 'running' | 'success' | 'error'
+
+export type ConditionOperator =
+  | 'eq' | 'neq'
+  | 'gt' | 'gte'
+  | 'lt' | 'lte'
+  | 'contains' | 'not_contains'
+  | 'exists' | 'not_exists'
+
+export interface IConditionData {
+  label: string
+  sourcePath: string
+  operator: ConditionOperator
+  compareValue: string
+  status: NodeStatus
+  sourceNodeId?: string
+  trueLabel?: string
+  falseLabel?: string
+}
 export type BodyType = 'none' | 'json' | 'formdata' | 'file'
 
 export type FieldMapping = {
@@ -67,15 +85,17 @@ export interface INodeData {
 
 export interface IFlowNode {
   id: string
-  type: string
+  type: string   // 'apiNode' | 'conditionNode'
   position: { x: number; y: number }
-  data: INodeData
+  data: INodeData | IConditionData
 }
 
 export interface IFlowEdge {
   id: string
   source: string
   target: string
+  sourceHandle?: string
+  targetHandle?: string
   animated?: boolean
   style?: Record<string, unknown>
 }

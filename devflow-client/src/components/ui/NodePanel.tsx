@@ -9,6 +9,7 @@ import type {
   FormField,
   FileData,
 } from '../../types/index'
+import type { ConditionData } from '../../types'
 import FieldMapper from './FieldMapper'
 import api from '../../services/api'
 
@@ -98,6 +99,11 @@ export default function NodePanel() {
   }, [selectedNode?.data.response, selectedNode?.data.error])
 
   if (!selectedNode) return null
+
+  // Add condition node panel — show when node type is conditionNode
+  if (selectedNode?.type === 'conditionNode') {
+    return <ConditionPanel node={selectedNode} onClose={() => setSelectedNode(null)} />
+  }
 
   const update = (field: keyof NodeData, value: unknown) => {
     setForm((prev) => ({ ...prev, [field]: value }))
@@ -542,5 +548,163 @@ function HeadersEditor({ value, onChange, inputStyle }: { value: Record<string, 
         </div>
       ))}
     </div>
+  )
+}
+
+function ConditionPanel({ node, onClose }: { node: any; onClose: () => void }) {
+  const { nodes, updateNodeData, setSelectedNode } = useFlowStore()
+  const data: ConditionData = node.data
+
+  const upd = (field: string, value: unknown) => {
+    updateNodeData(node.id, { [field]: value })
+  }
+
+  // Available source nodes (all nodes except this one)
+  const sourceNodes = nodes.filter(n => n.id !== node.id && n.type === 'apiNode')
+
+  const operators = [
+    { value: 'eq', label: '== equals' },
+    { value: 'neq', label: '!= not equals' },
+    { value: 'gt', label: '> greater than' },
+    { value: 'gte', label: '>= greater or equal' },
+    { value: 'lt', label: '< less than' },
+    { value: 'lte', label: '<= less or equal' },
+    { value: 'contains', label: 'contains' },
+    { value: 'not_contains', label: 'does not contain' },
+    { value: 'exists', label: 'exists' },
+    { value: 'not_exists', label: 'does not exist' },
+  ]
+
+  const inputClass = "w-full bg-[#141414] border border-white/[0.06] rounded-xl px-3 py-2.5 text-sm text-white/90 placeholder:text-zinc-700 focus:outline-none focus:border-yellow-500/50 focus:ring-1 focus:ring-yellow-500/20 transition-all"
+  const labelClass = "text-[10px] font-semibold text-zinc-500 uppercase tracking-widest"
+
+  return (
+    <>
+      <div className="absolute inset-0 z-10" onClick={onClose} />
+      <div className="absolute right-0 top-0 h-full w-[340px] z-20 bg-[#0d0d0d] border-l border-white/[0.06] flex flex-col">
+
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 py-3.5 border-b border-white/[0.06] shrink-0">
+          <div className="flex items-center gap-2">
+            <span style={{ fontSize: '10px', fontWeight: 800, padding: '2px 8px', borderRadius: '6px', background: 'rgba(251,191,36,0.1)', border: '1px solid rgba(251,191,36,0.25)', color: '#fbbf24' }}>
+              IF
+            </span>
+            <span className="text-sm font-medium text-white/80">Condition Node</span>
+          </div>
+          <button onClick={onClose} className="text-zinc-600 hover:text-zinc-300 transition-colors p-1 rounded-lg hover:bg-white/[0.04]">
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        {/* Content */}
+        <div className="flex-1 overflow-y-auto p-5 flex flex-col gap-5">
+
+          {/* Label */}
+          <div className="flex flex-col gap-2">
+            <label className={labelClass}>Label</label>
+            <input value={data.label ?? ''} onChange={e => upd('label', e.target.value)}
+              placeholder="Check payment status" className={inputClass} />
+          </div>
+
+          {/* Source node */}
+          <div className="flex flex-col gap-2">
+            <label className={labelClass}>Check response from</label>
+            <select value={data.sourceNodeId ?? ''} onChange={e => upd('sourceNodeId', e.target.value)}
+              className={inputClass} style={{ cursor: 'pointer' }}>
+              <option value="">— select a node —</option>
+              {sourceNodes.map(n => (
+                <option key={n.id} value={n.id}>{n.data.label}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* JSONPath */}
+          <div className="flex flex-col gap-2">
+            <label className={labelClass}>JSON Path</label>
+            <input value={data.sourcePath ?? ''} onChange={e => upd('sourcePath', e.target.value)}
+              placeholder="$.status" className={inputClass} style={{ fontFamily: 'monospace' }} />
+            <p className="text-[10px] text-zinc-600">
+              Extract a value from the response. e.g. <span className="text-yellow-500/70 font-mono">$.data.status</span> or <span className="text-yellow-500/70 font-mono">$.user.age</span>
+            </p>
+          </div>
+
+          {/* Operator */}
+          <div className="flex flex-col gap-2">
+            <label className={labelClass}>Operator</label>
+            <select value={data.operator ?? 'eq'} onChange={e => upd('operator', e.target.value)}
+              className={inputClass} style={{ cursor: 'pointer' }}>
+              {operators.map(op => (
+                <option key={op.value} value={op.value}>{op.label}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Compare value */}
+          {data.operator !== 'exists' && data.operator !== 'not_exists' && (
+            <div className="flex flex-col gap-2">
+              <label className={labelClass}>Compare Value</label>
+              <input value={data.compareValue ?? ''} onChange={e => upd('compareValue', e.target.value)}
+                placeholder="paid" className={inputClass} />
+              <p className="text-[10px] text-zinc-600">
+                The value to compare against. Numbers and booleans are auto-detected.
+              </p>
+            </div>
+          )}
+
+          {/* Branch labels */}
+          <div className="flex flex-col gap-2">
+            <label className={labelClass}>Branch Labels</label>
+            <div className="flex gap-2">
+              <div className="flex flex-col gap-1 flex-1">
+                <label className="text-[9px] text-emerald-400/70 uppercase tracking-wider">YES (true)</label>
+                <input value={data.trueLabel ?? 'YES'} onChange={e => upd('trueLabel', e.target.value)}
+                  placeholder="YES" style={{ ...{}, fontFamily: 'inherit', background: '#141414', border: '1px solid rgba(52,211,153,0.2)', borderRadius: '10px', padding: '8px 12px', color: '#34d399', fontSize: '12px', outline: 'none', width: '100%', boxSizing: 'border-box' as const }} />
+              </div>
+              <div className="flex flex-col gap-1 flex-1">
+                <label className="text-[9px] text-red-400/70 uppercase tracking-wider">NO (false)</label>
+                <input value={data.falseLabel ?? 'NO'} onChange={e => upd('falseLabel', e.target.value)}
+                  placeholder="NO" style={{ fontFamily: 'inherit', background: '#141414', border: '1px solid rgba(248,113,113,0.2)', borderRadius: '10px', padding: '8px 12px', color: '#f87171', fontSize: '12px', outline: 'none', width: '100%', boxSizing: 'border-box' }} />
+              </div>
+            </div>
+          </div>
+
+          {/* Preview */}
+          <div className="bg-[#141414] border border-white/[0.06] rounded-xl p-3">
+            <p className="text-[9px] text-zinc-500 uppercase tracking-wider mb-2">Preview</p>
+            <p className="text-[11px] font-mono text-zinc-400">
+              if <span className="text-yellow-400">{data.sourcePath || '$.field'}</span>{' '}
+              <span className="text-zinc-300">{data.operator || '=='}</span>{' '}
+              {data.operator !== 'exists' && data.operator !== 'not_exists' && (
+                <span className="text-emerald-400">"{data.compareValue || '?'}"</span>
+              )}
+            </p>
+            <div className="flex gap-4 mt-2">
+              <span className="text-[10px] text-emerald-400">→ {data.trueLabel || 'YES'} branch</span>
+              <span className="text-[10px] text-red-400">→ {data.falseLabel || 'NO'} branch</span>
+            </div>
+          </div>
+
+          {/* How to connect */}
+          <div className="bg-yellow-500/5 border border-yellow-500/10 rounded-xl p-3">
+            <p className="text-[9px] text-yellow-500/70 uppercase tracking-wider mb-1">How to use</p>
+            <p className="text-[10px] text-zinc-500 leading-relaxed">
+              Connect the <span className="text-emerald-400">green handle</span> (right) to the YES branch node.
+              Connect the <span className="text-red-400">red handle</span> (left) to the NO branch node.
+              The input handle is at the top.
+            </p>
+          </div>
+
+        </div>
+
+        <div className="px-5 py-3.5 border-t border-white/[0.06] shrink-0">
+          <button onClick={onClose}
+            className="w-full bg-yellow-600/80 hover:bg-yellow-500/80 transition-colors text-white text-xs font-semibold py-2.5 rounded-xl">
+            Done
+          </button>
+        </div>
+      </div>
+    </>
   )
 }

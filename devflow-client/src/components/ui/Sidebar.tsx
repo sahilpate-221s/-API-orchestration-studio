@@ -11,6 +11,12 @@ const nodeLibrary = [
   { method: 'PATCH', label: 'Patch Request', desc: 'Partially update', color: '#F2F3F5', bg: 'rgba(255,255,255,0.05)', border: 'rgba(255,255,255,0.15)', glow: 'rgba(255,255,255,0.10)' },
 ]
 
+// Add drag handler for condition node
+const onConditionDragStart = (e: React.DragEvent) => {
+  e.dataTransfer.setData('application/reactflow-nodetype', 'conditionNode')
+  e.dataTransfer.effectAllowed = 'move'
+}
+
 type TemplateData = { name: string; description: string; nodes: FlowNode[]; edges: FlowEdge[] }
 
 const builtInTemplates: TemplateData[] = [
@@ -83,20 +89,39 @@ function AIWorkflowGenerator({ mergeTemplate }: { mergeTemplate: (nodes: FlowNod
       const res = await api.post('/ai/generate-workflow', { description: prompt })
       const { workflow } = res.data
 
-      // Convert AI response nodes to FlowNode format
-      const flowNodes: FlowNode[] = workflow.nodes.map((n: any) => ({
-        id: `ai-${n.id}-${Date.now()}`,
-        type: 'apiNode',
-        position: n.position,
-        data: {
-          label: n.label,
-          method: n.method as any,
-          url: n.url,
-          status: 'idle' as const,
-          headers: n.headers ?? {},
-          body: n.body ?? '',
-        },
-      }))
+      // Convert AI response nodes to FlowNode format (handling both apiNode and conditionNode)
+      const flowNodes: FlowNode[] = workflow.nodes.map((n: any) => {
+        if (n.type === 'conditionNode') {
+          return {
+            id: `ai-${n.id}-${Date.now()}`,
+            type: 'conditionNode',
+            position: n.position,
+            data: {
+              label: n.label || 'Check Condition',
+              sourcePath: n.sourcePath || '$.status',
+              operator: (n.operator || 'eq') as any,
+              compareValue: n.compareValue !== undefined ? String(n.compareValue) : '200',
+              status: 'idle' as const,
+              sourceNodeId: n.sourceNodeId || '',
+              trueLabel: n.trueLabel || 'YES',
+              falseLabel: n.falseLabel || 'NO',
+            },
+          }
+        }
+        return {
+          id: `ai-${n.id}-${Date.now()}`,
+          type: 'apiNode',
+          position: n.position,
+          data: {
+            label: n.label,
+            method: n.method as any,
+            url: n.url,
+            status: 'idle' as const,
+            headers: n.headers ?? {},
+            body: n.body ?? '',
+          },
+        }
+      })
 
       // Build id map for edges (old id → new id)
       const idMap = new Map<string, string>()
@@ -104,13 +129,15 @@ function AIWorkflowGenerator({ mergeTemplate }: { mergeTemplate: (nodes: FlowNod
         idMap.set(n.id, flowNodes[i].id)
       })
 
-      // Convert edges
+      // Convert edges preserving sourceHandle / targetHandle
       const flowEdges: FlowEdge[] = workflow.edges.map((e: any, i: number) => ({
         id: `ai-edge-${i}-${Date.now()}`,
         source: idMap.get(e.source) ?? e.source,
         target: idMap.get(e.target) ?? e.target,
+        sourceHandle: e.sourceHandle,
+        targetHandle: e.targetHandle,
         animated: true,
-        style: { stroke: '#3ECF8E', strokeWidth: 1.5 },
+        style: { stroke: e.sourceHandle === 'false' ? '#f87171' : '#3ECF8E', strokeWidth: 1.5 },
       }))
 
       mergeTemplate(flowNodes, flowEdges)
@@ -524,6 +551,47 @@ export default function Sidebar() {
             </div>
           )
         })}
+
+        {(!expanded || nodeLibOpen) && (
+          <div
+            draggable
+            onDragStart={onConditionDragStart}
+            onMouseEnter={(e) => { setHoveredMethod('CONDITION'); showTooltip(e, 'Condition') }}
+            onMouseLeave={() => { setHoveredMethod(null); hideTooltip() }}
+            style={{
+              display: 'flex', alignItems: 'center', gap: '10px',
+              padding: expanded ? '7px 8px' : '6px 0',
+              borderRadius: '8px',
+              background: hoveredMethod === 'CONDITION' ? 'rgba(251,191,36,0.10)' : 'transparent',
+              border: `1px solid ${hoveredMethod === 'CONDITION' ? 'rgba(251,191,36,0.22)' : 'transparent'}`,
+              cursor: 'grab',
+              transition: 'all 0.15s ease',
+              boxShadow: hoveredMethod === 'CONDITION' ? '0 0 14px rgba(251,191,36,0.15)' : 'none',
+              userSelect: 'none',
+              justifyContent: expanded ? 'flex-start' : 'center',
+              flexShrink: 0,
+            }}
+          >
+            <div style={{
+              minWidth: expanded ? '34px' : '36px',
+              height: '20px',
+              borderRadius: '5px',
+              background: 'rgba(251,191,36,0.10)',
+              border: '1px solid rgba(251,191,36,0.22)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+            }}>
+              <span style={{ fontSize: '7.5px', fontWeight: 700, color: '#fbbf24', fontFamily: "'JetBrains Mono', monospace" }}>IF</span>
+            </div>
+            <div style={{
+              display: 'flex', flexDirection: 'column', gap: '1px', overflow: 'hidden',
+              maxWidth: expanded ? `${sidebarWidth - 68}px` : '0px',
+              opacity: expanded ? 1 : 0, transition: 'max-width 0.22s ease, opacity 0.15s ease'
+            }}>
+              <span style={{ fontSize: '12px', fontWeight: 500, color: hoveredMethod === 'CONDITION' ? '#F2F3F5' : '#C9CBD1', whiteSpace: 'nowrap' }}>Condition</span>
+              <span style={{ fontSize: '10px', color: '#5A5C64', whiteSpace: 'nowrap' }}>Branch on value</span>
+            </div>
+          </div>
+        )}
 
         {/* AI Workflow Generator */}
         {expanded && (

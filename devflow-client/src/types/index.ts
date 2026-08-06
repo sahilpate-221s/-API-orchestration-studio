@@ -85,6 +85,29 @@ export type FlowEdge = {
   id: string;
   source: string;
   target: string;
+  sourceHandle?: string;
+  targetHandle?: string;
   animated?: boolean;
   style?: Record<string, unknown>;
 };
+
+
+export type ConditionOperator =
+  | 'eq' | 'neq'
+  | 'gt' | 'gte'
+  | 'lt' | 'lte'
+  | 'contains' | 'not_contains'
+  | 'exists' | 'not_exists'
+
+export type ConditionData = {
+  label: string
+  sourcePath: string        // JSONPath: $.status
+  operator: ConditionOperator
+  compareValue: string      // value to compare against
+  status: NodeStatus
+  sourceNodeId?: string     // which node's response to check
+  trueLabel?: string        // label for YES handle
+  falseLabel?: string       // label for NO handle
+  conditionResult?: boolean // result of condition evaluation
+  conditionLabel?: string   // 'YES' or 'NO' after evaluation
+}

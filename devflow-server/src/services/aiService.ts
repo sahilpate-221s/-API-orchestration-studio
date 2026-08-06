@@ -240,51 +240,75 @@ export async function fixApiCall(error: string, config: any): Promise<{
 export async function generateWorkflow(description: string): Promise<{
   nodes: Array<{
     id: string
+    type?: string
     label: string
-    method: string
-    url: string
-    headers: Record<string, string>
-    body: string
+    method?: string
+    url?: string
+    headers?: Record<string, string>
+    body?: string
+    sourcePath?: string
+    operator?: string
+    compareValue?: string
+    trueLabel?: string
+    falseLabel?: string
     position: { x: number; y: number }
   }>
   edges: Array<{
     source: string
     target: string
+    sourceHandle?: string
+    targetHandle?: string
   }>
   explanation: string
 }> {
   const systemPrompt = `You are a workflow generator for DevFlow, a visual API orchestration tool.
 
-Given a description of what the user wants to do, generate a sequence of API nodes and edges connecting them.
+Given a description of what the user wants to do, generate a sequence of API nodes, condition nodes, and edges connecting them.
 
 Return ONLY a valid JSON object with this exact structure:
 {
   "nodes": [
     {
       "id": "node1",
-      "label": "Short descriptive label",
+      "type": "apiNode",
+      "label": "Fetch User",
       "method": "GET|POST|PUT|DELETE|PATCH",
       "url": "full https:// url",
       "headers": {},
       "body": "",
       "position": { "x": 100, "y": 200 }
+    },
+    {
+      "id": "node2",
+      "type": "conditionNode",
+      "label": "Check Status",
+      "sourcePath": "$.status",
+      "operator": "eq|neq|gt|gte|lt|lte|contains|not_contains|exists|not_exists",
+      "compareValue": "200",
+      "trueLabel": "YES",
+      "falseLabel": "NO",
+      "position": { "x": 480, "y": 200 }
     }
   ],
   "edges": [
-    { "source": "node1", "target": "node2" }
+    { "source": "node1", "target": "node2" },
+    { "source": "node2", "target": "node3", "sourceHandle": "true" },
+    { "source": "node2", "target": "node4", "sourceHandle": "false" }
   ],
   "explanation": "One sentence describing what this workflow does"
 }
 
 Rules:
-- Generate 2 to 6 nodes maximum
-- Position nodes horizontally: first node x=100, each subsequent node x += 380
-- All nodes at y=200 unless it's a parallel branch (then offset y by +200 or -200)
-- For parallel branches (two things happening simultaneously after one trigger), fan out from one source to multiple targets
+- Node type can be "apiNode" or "conditionNode". Default is "apiNode".
+- Use "conditionNode" when the prompt involves conditional logic, checking response values, branching, if/else, or status validation.
+- Condition nodes have TWO output handles: "true" (YES branch) and "false" (NO branch). Specify "sourceHandle": "true" or "sourceHandle": "false" on edges coming OUT of a condition node.
+- Position nodes logically: first node x=100, next node x += 380.
+- For IF/ELSE branching after a condition node:
+  - Put condition node at x=480, y=200
+  - Put the TRUE (YES) branch target node at x=860, y=100 (top)
+  - Put the FALSE (NO) branch target node at x=860, y=340 (bottom)
+- Generate 2 to 6 nodes maximum.
 - Use real public APIs when possible (jsonplaceholder.typicode.com, reqres.in, httpbin.org, api.github.com)
-- If user mentions a private/custom API, use a realistic placeholder URL like https://api.example.com/resource
-- For POST/PUT nodes, include a realistic body JSON string
-- Labels should be short action phrases: "Fetch User", "Create Order", "Send Notification"
 - No explanation text outside the JSON. No markdown. Just the raw JSON object.`
 
   try {
@@ -312,28 +336,54 @@ Rules:
   } catch (error) {
     console.warn('OpenAI workflow generation failed. Using heuristic fallback.')
 
-    // Heuristic fallback — build a simple 2-3 node workflow from keywords
     const lower = description.toLowerCase()
     const nodes: any[] = []
     const edges: any[] = []
 
-    // Detect common patterns
+    const hasCondition = lower.includes('if') || lower.includes('condition') || lower.includes('check') || lower.includes('branch') || lower.includes('else') || lower.includes('when') || lower.includes('status')
     const hasUser = lower.includes('user')
     const hasPost = lower.includes('post') || lower.includes('article')
     const hasOrder = lower.includes('order')
     const hasWebhook = lower.includes('webhook') || lower.includes('notify') || lower.includes('send')
     const hasAuth = lower.includes('login') || lower.includes('auth')
 
-    if (hasAuth) {
+    if (hasCondition) {
+      // Create a 4-node IF/ELSE workflow template
       nodes.push({
-        id: 'node1', label: 'Login',
+        id: 'node1', type: 'apiNode', label: 'Fetch User',
+        method: 'GET', url: 'https://jsonplaceholder.typicode.com/users/1',
+        headers: {}, body: '', position: { x: 100, y: 200 }
+      })
+      nodes.push({
+        id: 'node2', type: 'conditionNode', label: 'Check User ID',
+        sourcePath: '$.id', operator: 'eq', compareValue: '1',
+        trueLabel: 'YES', falseLabel: 'NO',
+        position: { x: 480, y: 200 }
+      })
+      nodes.push({
+        id: 'node3', type: 'apiNode', label: 'Fetch User Posts (TRUE)',
+        method: 'GET', url: 'https://jsonplaceholder.typicode.com/posts?userId=1',
+        headers: {}, body: '', position: { x: 860, y: 100 }
+      })
+      nodes.push({
+        id: 'node4', type: 'apiNode', label: 'Log Error (FALSE)',
+        method: 'POST', url: 'https://httpbin.org/post',
+        headers: { 'Content-Type': 'application/json' },
+        body: '{"error": "User condition failed"}', position: { x: 860, y: 340 }
+      })
+      edges.push({ source: 'node1', target: 'node2' })
+      edges.push({ source: 'node2', target: 'node3', sourceHandle: 'true' })
+      edges.push({ source: 'node2', target: 'node4', sourceHandle: 'false' })
+    } else if (hasAuth) {
+      nodes.push({
+        id: 'node1', type: 'apiNode', label: 'Login',
         method: 'POST', url: 'https://reqres.in/api/login',
         headers: { 'Content-Type': 'application/json' },
         body: '{"email":"eve.holt@reqres.in","password":"cityslicka"}',
         position: { x: 100, y: 200 }
       })
       nodes.push({
-        id: 'node2', label: hasUser ? 'Get Users' : 'Get Profile',
+        id: 'node2', type: 'apiNode', label: hasUser ? 'Get Users' : 'Get Profile',
         method: 'GET', url: 'https://reqres.in/api/users',
         headers: {}, body: '',
         position: { x: 480, y: 200 }
@@ -341,13 +391,13 @@ Rules:
       edges.push({ source: 'node1', target: 'node2' })
     } else if (hasUser && hasPost) {
       nodes.push({
-        id: 'node1', label: 'Fetch User',
+        id: 'node1', type: 'apiNode', label: 'Fetch User',
         method: 'GET', url: 'https://jsonplaceholder.typicode.com/users/1',
         headers: {}, body: '',
         position: { x: 100, y: 200 }
       })
       nodes.push({
-        id: 'node2', label: 'Fetch Posts',
+        id: 'node2', type: 'apiNode', label: 'Fetch Posts',
         method: 'GET', url: 'https://jsonplaceholder.typicode.com/posts?userId=1',
         headers: {}, body: '',
         position: { x: 480, y: 200 }
@@ -355,7 +405,7 @@ Rules:
       edges.push({ source: 'node1', target: 'node2' })
       if (hasWebhook) {
         nodes.push({
-          id: 'node3', label: 'Send to Webhook',
+          id: 'node3', type: 'apiNode', label: 'Send to Webhook',
           method: 'POST', url: 'https://httpbin.org/post',
           headers: { 'Content-Type': 'application/json' },
           body: '{"data": "results"}',
@@ -365,29 +415,28 @@ Rules:
       }
     } else if (hasOrder) {
       nodes.push({
-        id: 'node1', label: 'Create Order',
+        id: 'node1', type: 'apiNode', label: 'Create Order',
         method: 'POST', url: 'https://jsonplaceholder.typicode.com/posts',
         headers: { 'Content-Type': 'application/json' },
         body: '{"title":"New Order","body":"Order details","userId":1}',
         position: { x: 100, y: 200 }
       })
       nodes.push({
-        id: 'node2', label: 'Confirm Order',
+        id: 'node2', type: 'apiNode', label: 'Confirm Order',
         method: 'GET', url: 'https://jsonplaceholder.typicode.com/posts/1',
         headers: {}, body: '',
         position: { x: 480, y: 200 }
       })
       edges.push({ source: 'node1', target: 'node2' })
     } else {
-      // Generic fallback
       nodes.push({
-        id: 'node1', label: 'Fetch Data',
+        id: 'node1', type: 'apiNode', label: 'Fetch Data',
         method: 'GET', url: 'https://jsonplaceholder.typicode.com/posts',
         headers: {}, body: '',
         position: { x: 100, y: 200 }
       })
       nodes.push({
-        id: 'node2', label: 'Process Result',
+        id: 'node2', type: 'apiNode', label: 'Process Result',
         method: 'POST', url: 'https://httpbin.org/post',
         headers: { 'Content-Type': 'application/json' },
         body: '{"data": "processed"}',

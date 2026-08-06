@@ -1,4 +1,7 @@
 import { useCallback, useRef, useMemo, useEffect, useState } from 'react'
+import { conditionNodeTypes } from '../nodes/ConditionNode'
+
+
 import ReactFlow, {
   Background,
   BackgroundVariant,
@@ -16,11 +19,15 @@ export default function FlowCanvas() {
   const {
     nodes, edges,
     onNodesChange, onEdgesChange, onConnect,
-    addNode, setSelectedNode,
+    addNode, addConditionNode, setSelectedNode,
     undo, redo, saveHistory
   } = useFlowStore()
 
-  const memoNodeTypes = useMemo(() => nodeTypes, [])
+  const memoNodeTypes = useMemo(() => ({
+  ...nodeTypes,
+  ...conditionNodeTypes,
+}), [])
+
   const [zoomLevel, setZoomLevel] = useState(54)
 
   // Keyboard shortcut listener for Zoom (+ / - / Ctrl+0) and Undo/Redo
@@ -61,6 +68,18 @@ export default function FlowCanvas() {
 
   const onDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault()
+
+    // Check for condition node first
+    const nodeType = e.dataTransfer.getData('application/reactflow-nodetype')
+    if (nodeType === 'conditionNode' && rfInstance.current) {
+      const position = rfInstance.current.screenToFlowPosition({
+        x: e.clientX,
+        y: e.clientY,
+      })
+      addConditionNode(position)
+      return
+    }
+
     const method = e.dataTransfer.getData('application/reactflow-method') as HttpMethod
     if (!method || !rfInstance.current) return
 
@@ -70,7 +89,7 @@ export default function FlowCanvas() {
     })
 
     addNode(method, position)
-  }, [addNode])
+  }, [addNode, addConditionNode])
 
   const onNodeClick = useCallback((_: React.MouseEvent, node: any) => {
     setSelectedNode(node.id)

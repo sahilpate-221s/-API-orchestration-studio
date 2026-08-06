@@ -61,6 +61,8 @@ export function useExecution() {
       statusText?: string
       responseHeaders?: Record<string, string>
       retryCount?: number
+      conditionResult?: boolean
+      conditionLabel?: string
 
     }) => {
       updateNodeData(data.nodeId, {
@@ -73,7 +75,9 @@ export function useExecution() {
         statusText: data.statusText,
         responseHeaders: data.responseHeaders,
         retryCount: data.retryCount,
-      })
+        conditionResult: data.conditionResult,
+        conditionLabel: data.conditionLabel,
+      } as any)
     })
 
     socket.on('execution_start', (data: { remaining?: number }) => {

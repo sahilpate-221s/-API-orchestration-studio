@@ -26,6 +26,7 @@ type FlowStore = {
   onEdgesChange: (changes: EdgeChange[]) => void
   onConnect: (connection: Connection) => void
   addNode: (method: HttpMethod, position: { x: number; y: number }) => void
+  addConditionNode: (position: { x: number; y: number }) => void
   updateNodeData: (id: string, data: Partial<NodeData>) => void
   setSelectedNode: (id: string | null) => void
   setWorkflowMeta: (id: string, name: string, workspace: string) => void
@@ -138,7 +139,8 @@ export const useFlowStore = create<FlowStore>((set, get) => ({
 
     if (!source || !target || source === target) return
     if (!nodes.some((node) => node.id === source) || !nodes.some((node) => node.id === target)) return
-    if (edges.some((edge) => edge.source === source && edge.target === target)) return
+    // Check duplicate — also consider sourceHandle so condition nodes can connect both handles to same target
+    if (edges.some((edge) => edge.source === source && edge.target === target && edge.sourceHandle === (connection.sourceHandle ?? null))) return
     if (wouldCreateCycle(edges, source, target)) return
 
     const sourceNode = nodes.find((n) => n.id === source)
@@ -146,8 +148,8 @@ export const useFlowStore = create<FlowStore>((set, get) => ({
 
     get().saveHistory()
 
-    // --- Auto-propagate source data to target (only fill empty / default fields) ---
-    if (sourceNode && targetNode) {
+    // --- Auto-propagate source data to target (only for apiNode → apiNode connections) ---
+    if (sourceNode && targetNode && sourceNode.type === 'apiNode' && targetNode.type === 'apiNode') {
       const srcData = sourceNode.data
       const tgtData = targetNode.data
       const patch: Partial<NodeData> = {}
@@ -223,6 +225,27 @@ export const useFlowStore = create<FlowStore>((set, get) => ({
         method,
         url: '',
         status: 'idle',
+      },
+    }
+    get().saveHistory()
+    set({ nodes: [...get().nodes, newNode], selectedNodeId: id })
+  },
+
+  addConditionNode: (position) => {
+    const id = `condition-${Date.now()}`
+    const newNode: any = {
+      id,
+      type: 'conditionNode',
+      position,
+      data: {
+        label: 'Check Condition',
+        sourcePath: '$.status',
+        operator: 'eq' as const,
+        compareValue: '',
+        status: 'idle' as const,
+        sourceNodeId: '',
+        trueLabel: 'YES',
+        falseLabel: 'NO',
       },
     }
     get().saveHistory()
