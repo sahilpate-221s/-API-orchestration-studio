@@ -1,6 +1,6 @@
 import { useCallback, useRef, useMemo, useEffect, useState } from 'react'
 import { conditionNodeTypes } from '../nodes/ConditionNode'
-
+import { webhookNodeTypes } from '../nodes/WebhookNode'
 
 import ReactFlow, {
   Background,
@@ -19,13 +19,14 @@ export default function FlowCanvas() {
   const {
     nodes, edges,
     onNodesChange, onEdgesChange, onConnect,
-    addNode, addConditionNode, setSelectedNode,
+    addNode, addConditionNode, addWebhookNode, setSelectedNode,
     undo, redo, saveHistory
   } = useFlowStore()
 
-  const memoNodeTypes = useMemo(() => ({
+const memoNodeTypes = useMemo(() => ({
   ...nodeTypes,
   ...conditionNodeTypes,
+  ...webhookNodeTypes,
 }), [])
 
   const [zoomLevel, setZoomLevel] = useState(54)
@@ -80,6 +81,12 @@ export default function FlowCanvas() {
       return
     }
 
+    if (nodeType === 'webhookNode' && rfInstance.current) {
+      const position = rfInstance.current.screenToFlowPosition({ x: e.clientX, y: e.clientY })
+      addWebhookNode(position)
+      return
+    }
+
     const method = e.dataTransfer.getData('application/reactflow-method') as HttpMethod
     if (!method || !rfInstance.current) return
 
@@ -89,7 +96,7 @@ export default function FlowCanvas() {
     })
 
     addNode(method, position)
-  }, [addNode, addConditionNode])
+  }, [addNode, addConditionNode, addWebhookNode])
 
   const onNodeClick = useCallback((_: React.MouseEvent, node: any) => {
     setSelectedNode(node.id)

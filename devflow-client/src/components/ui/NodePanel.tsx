@@ -12,6 +12,7 @@ import type {
 import type { ConditionData } from '../../types'
 import FieldMapper from './FieldMapper'
 import api from '../../services/api'
+import WebhookPanel from './WebhookPanel'
 
 const methods: HttpMethod[] = ['GET', 'POST', 'PUT', 'DELETE', 'PATCH']
 
@@ -103,6 +104,10 @@ export default function NodePanel() {
   // Add condition node panel — show when node type is conditionNode
   if (selectedNode?.type === 'conditionNode') {
     return <ConditionPanel node={selectedNode} onClose={() => setSelectedNode(null)} />
+  }
+
+  if (selectedNode?.type === 'webhookNode') {
+    return <WebhookPanel nodeId={selectedNode.id} onClose={() => setSelectedNode(null)} />
   }
 
   const update = (field: keyof NodeData, value: unknown) => {

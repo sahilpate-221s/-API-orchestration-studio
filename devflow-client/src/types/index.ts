@@ -63,6 +63,10 @@ export type NodeData = {
   bodyType?: BodyType;
   formFields?: FormField[];
   fileData?: FileData;
+  webhookId?: string;
+  webhookUrl?: string;
+  active?: boolean;
+  triggerCount?: number;
 };
 
 export type FlowWorkflow = {

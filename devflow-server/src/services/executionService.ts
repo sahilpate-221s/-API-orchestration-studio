@@ -462,11 +462,16 @@ function getAllDescendants(
 }
 
 export async function executeWorkflowJob(job: Job<WorkflowJobData>): Promise<void> {
-  const { workflowId, userId, nodes, edges, executionId } = job.data
+  const { workflowId, userId, nodes, edges, executionId, webhookPayload } = job.data
   const startTime = Date.now()
   const results: Record<string, unknown> = {}
   const allNodeResults: NodeExecutionResult[] = []
   let overallStatus: 'success' | 'error' = 'success'
+
+  if (webhookPayload) {
+    results['__webhook__'] = webhookPayload
+    console.log(`[Worker] Webhook payload injected for execution ${executionId}`)
+  }
 
   await Execution.findOneAndUpdate(
     { executionId },

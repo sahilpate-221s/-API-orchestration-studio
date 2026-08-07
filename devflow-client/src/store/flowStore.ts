@@ -27,6 +27,7 @@ type FlowStore = {
   onConnect: (connection: Connection) => void
   addNode: (method: HttpMethod, position: { x: number; y: number }) => void
   addConditionNode: (position: { x: number; y: number }) => void
+  addWebhookNode: (position: { x: number; y: number }) => void
   updateNodeData: (id: string, data: Partial<NodeData>) => void
   setSelectedNode: (id: string | null) => void
   setWorkflowMeta: (id: string, name: string, workspace: string) => void
@@ -246,6 +247,25 @@ export const useFlowStore = create<FlowStore>((set, get) => ({
         sourceNodeId: '',
         trueLabel: 'YES',
         falseLabel: 'NO',
+      },
+    }
+    get().saveHistory()
+    set({ nodes: [...get().nodes, newNode], selectedNodeId: id })
+  },
+
+  addWebhookNode: (position) => {
+    const id = `webhook-${Date.now()}`
+    const newNode: any = {
+      id,
+      type: 'webhookNode',
+      position,
+      data: {
+        label: 'Webhook Trigger',
+        webhookId: undefined,
+        webhookUrl: undefined,
+        active: false,
+        triggerCount: 0,
+        status: 'idle' as const,
       },
     }
     get().saveHistory()

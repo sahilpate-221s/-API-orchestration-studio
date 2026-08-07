@@ -26,6 +26,7 @@ export interface IExecution extends Document {
   idempotencyKey: string
   jobId?: string
   loadTestMeta?: Record<string, unknown>
+  triggeredBy?: 'manual' | 'webhook' | 'schedule'
 }
 
 const NodeResultSchema = new Schema<NodeExecutionResult>({
@@ -58,6 +59,7 @@ const ExecutionSchema = new Schema<IExecution>({
   idempotencyKey: { type: String, required: true },
   jobId: String,
   loadTestMeta: { type: Schema.Types.Mixed, default: null },
+  triggeredBy: { type: String, enum: ['manual', 'webhook', 'schedule'], default: 'manual' },
 }, { timestamps: true })
 
 ExecutionSchema.index({ workflowId: 1, triggeredAt: -1 })

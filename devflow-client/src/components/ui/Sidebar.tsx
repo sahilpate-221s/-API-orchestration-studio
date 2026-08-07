@@ -17,6 +17,11 @@ const onConditionDragStart = (e: React.DragEvent) => {
   e.dataTransfer.effectAllowed = 'move'
 }
 
+const onWebhookDragStart = (e: React.DragEvent) => {
+  e.dataTransfer.setData('application/reactflow-nodetype', 'webhookNode')
+  e.dataTransfer.effectAllowed = 'move'
+}
+
 type TemplateData = { name: string; description: string; nodes: FlowNode[]; edges: FlowEdge[] }
 
 const builtInTemplates: TemplateData[] = [
@@ -1105,6 +1110,52 @@ export default function Sidebar() {
                   <span style={{ fontSize: '10px', color: '#5A5C64', whiteSpace: 'nowrap' }}>Branch on value</span>
                 </div>
               )}
+            </div>
+
+            {/* Webhook Trigger Node */}
+            <div
+              draggable
+              onDragStart={onWebhookDragStart}
+              onMouseEnter={(e) => { setHoveredMethod('WEBHOOK'); showTooltip(e, 'Webhook') }}
+              onMouseLeave={() => { setHoveredMethod(null); hideTooltip() }}
+              style={{
+                display: 'flex', alignItems: 'center', gap: '10px',
+                padding: expanded ? '7px 8px' : '6px 0',
+                borderRadius: '8px',
+                background: hoveredMethod === 'WEBHOOK' ? 'rgba(251,113,133,0.10)' : 'transparent',
+                border: `1px solid ${hoveredMethod === 'WEBHOOK' ? 'rgba(251,113,133,0.22)' : 'transparent'}`,
+                cursor: 'grab',
+                transition: 'all 0.15s ease',
+                boxShadow: hoveredMethod === 'WEBHOOK' ? '0 0 14px rgba(251,113,133,0.15)' : 'none',
+                userSelect: 'none',
+                justifyContent: expanded ? 'flex-start' : 'center',
+                flexShrink: 0,
+              }}
+            >
+              <div style={{
+                minWidth: expanded ? '34px' : '36px',
+                height: '20px',
+                borderRadius: '5px',
+                background: 'rgba(251,113,133,0.10)',
+                border: '1px solid rgba(251,113,133,0.22)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+              }}>
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fb7185" strokeWidth="2.5">
+                  <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+                </svg>
+              </div>
+              <div style={{
+                display: 'flex', flexDirection: 'column', gap: '1px', overflow: 'hidden',
+                maxWidth: expanded ? `${sidebarWidth - 68}px` : '0px',
+                opacity: expanded ? 1 : 0, transition: 'max-width 0.22s ease, opacity 0.15s ease'
+              }}>
+                <span style={{ fontSize: '12px', fontWeight: 500, color: hoveredMethod === 'WEBHOOK' ? '#F2F3F5' : '#C9CBD1', whiteSpace: 'nowrap' }}>
+                  Webhook
+                </span>
+                <span style={{ fontSize: '10px', color: '#5A5C64', whiteSpace: 'nowrap' }}>
+                  External trigger
+                </span>
+              </div>
             </div>
           </div>
         )}

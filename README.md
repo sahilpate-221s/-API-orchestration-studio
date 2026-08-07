@@ -44,6 +44,10 @@
 - **JSONPath Mapping:** Visually pipe upstream responses directly into downstream requests.
 - **AI Generation:** Describe your API call in plain English, and the AI builds the configuration.
 
+### 🔄 Automation & Logic
+- **Webhook Triggers:** Generate unique webhook URLs to trigger your workflows from external services. Includes URL regeneration and pausing.
+- **Conditional Logic:** Route executions dynamically based on upstream responses and complex operators (eq, contains, gt, lt).
+
 ### ⚡ Execution & Load Testing
 - **DAG Engine:** Topological sorting (Kahn's Algorithm) for parallel and sequential execution.
 - **Real Virtual Users:** Run live HTTP load tests against your APIs.

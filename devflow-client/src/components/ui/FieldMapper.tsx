@@ -47,7 +47,14 @@ export default function FieldMapper({ nodeId }: Props) {
   }
 
   visitUpstream(nodeId)
-  const sourceNodes = nodes.filter((n) => upstreamIds.has(n.id))
+  
+  // In the source nodes list, add __webhook__ as a virtual node
+  const sourceNodes = [
+    // Virtual webhook source
+    { id: '__webhook__', data: { label: '⚡ Webhook Payload' } },
+    // Real nodes
+    ...nodes.filter((n) => upstreamIds.has(n.id)),
+  ]
 
   const mappings: FieldMapping[] = currentNode?.data.fieldMappings ?? []
 
