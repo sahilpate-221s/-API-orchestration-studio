@@ -221,6 +221,29 @@ async function executeNode(
   const startedAt = new Date()
   let retryCount = 0
 
+  if (node.type === 'webhookNode') {
+    const result: NodeExecutionResult = {
+      nodeId: node.id,
+      nodeLabel: node.data.label || 'Webhook Trigger',
+      status: 'success',
+      response: { message: 'Webhook triggered' },
+      executionTime: 0,
+      fromCache: false,
+      retryCount: 0,
+      startedAt,
+      completedAt: new Date(),
+    }
+    io.to(workflowId).emit('node_update', {
+      nodeId: node.id,
+      status: 'success',
+      response: { message: 'Webhook triggered' },
+      executionTime: 0,
+      fromCache: false,
+      statusCode: 200,
+    })
+    return result
+  }
+
   const { url, headers, body } = resolveFieldMappings(node, results)
 
   if (!url) {

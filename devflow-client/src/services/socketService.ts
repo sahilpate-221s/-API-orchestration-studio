@@ -4,7 +4,10 @@ let socket: Socket | null = null
 
 export function getSocket(): Socket {
   if (!socket) {
-    socket = io(import.meta.env.VITE_SOCKET_URL ?? 'http://localhost:5000', {
+    const apiUrl = import.meta.env.VITE_API_URL ?? 'http://localhost:5000/api'
+    const socketUrl = apiUrl.replace(/\/api\/?$/, '')
+    
+    socket = io(socketUrl, {
       withCredentials: true,
       transports: ['websocket'],
     })
