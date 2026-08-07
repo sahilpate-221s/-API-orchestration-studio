@@ -41,8 +41,8 @@ export default function ConditionNode({ id, data, selected }: NodeProps<Conditio
       onMouseLeave={() => setIsHovered(false)}
       style={{
         position: 'relative',
-        width: '160px',
-        height: '160px',
+        width: '120px',
+        height: '120px',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
@@ -54,8 +54,8 @@ export default function ConditionNode({ id, data, selected }: NodeProps<Conditio
           onClick={handleDelete}
           style={{
             position: 'absolute',
-            top: '16px',
-            right: '16px',
+            top: '8px',
+            right: '8px',
             width: '20px',
             height: '20px',
             borderRadius: '50%',
@@ -81,8 +81,8 @@ export default function ConditionNode({ id, data, selected }: NodeProps<Conditio
 
       {/* Diamond shape */}
       <div style={{
-        width: '130px',
-        height: '130px',
+        width: '95px',
+        height: '95px',
         background: '#111111',
         border: `2px solid ${hasResult ? resultColor : (selected || isHovered ? 'rgba(251,191,36,0.6)' : 'rgba(251,191,36,0.25)')}`,
         transform: 'rotate(45deg)',

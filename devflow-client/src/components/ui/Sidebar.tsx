@@ -1070,6 +1070,14 @@ export default function Sidebar() {
               )
             })}
 
+            {/* Divider for logic/automation nodes */}
+            <div style={{
+              height: '1px',
+              background: 'rgba(255,255,255,0.06)',
+              margin: '8px 4px',
+              width: 'calc(100% - 8px)'
+            }} />
+
             {/* Condition node */}
             <div
               draggable

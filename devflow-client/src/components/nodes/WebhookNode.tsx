@@ -44,7 +44,7 @@ export default function WebhookNode({ id, data, selected }: NodeProps<WebhookNod
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
       style={{
-        width: '280px',
+        width: '180px',
         background: '#111111',
         border: `1px solid ${selected || isHovered ? 'rgba(251,113,133,0.5)' : 'rgba(251,113,133,0.2)'}`,
         borderRadius: '16px',
